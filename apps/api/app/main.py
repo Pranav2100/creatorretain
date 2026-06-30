@@ -1,8 +1,9 @@
 from fastapi import FastAPI
+from app.core.config import settings
 
 app = FastAPI(
-    title="CreatorRetain API",
-    version="0.1.0",
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
 )
 
 
