@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+
+from app.api.auth import router as auth_router
 from app.core.config import settings
 
 app = FastAPI(
@@ -6,11 +8,13 @@ app = FastAPI(
     version=settings.APP_VERSION,
 )
 
+app.include_router(auth_router)
+
 
 @app.get("/")
 def root():
     return {
         "status": "ok",
         "service": "CreatorRetain API",
-        "version": "0.1.0",
+        "version": settings.APP_VERSION,
     }
