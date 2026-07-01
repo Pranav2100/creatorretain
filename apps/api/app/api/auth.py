@@ -1,18 +1,20 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
+from app.core.security import validate_password
 from app.schemas.auth import RegisterRequest
 
-router = APIRouter(prefix="/auth", tags=["Authentication"])
+router = APIRouter(
+    prefix="/auth",
+    tags=["Authentication"],
+)
 
 
 @router.post("/register")
 def register(request: RegisterRequest):
-
-    if request.password != request.confirm_password:
-        raise HTTPException(
-            status_code=400,
-            detail="Passwords do not match.",
-        )
+    validate_password(
+        request.password,
+        request.confirm_password,
+    )
 
     return {
         "message": "Registration request received successfully.",

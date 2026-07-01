@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
 from app.api.auth import router as auth_router
-from app.core.config import settings
+from app.core.settings import settings
 
 app = FastAPI(
     title=settings.APP_NAME,
