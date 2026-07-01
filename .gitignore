@@ -7,15 +7,25 @@ __pycache__/
 # Virtual Environment
 .venv/
 
-# Environment variables
+# Environment
 .env
 .env.*
 
-# VS Code
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Type checking
+.mypy_cache/
+
+# Ruff
+.ruff_cache/
+
+# IDE
 .vscode/
+.idea/
 
-# macOS
+# OS
 .DS_Store
-
-# Windows
 Thumbs.db
