@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from apps.api.app.core.password import hash_password
+from app.core.password import hash_password
 from app.core.security import validate_password
 from app.schemas.auth import RegisterRequest
 
