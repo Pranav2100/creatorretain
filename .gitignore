@@ -1,6 +1,21 @@
-node_modules/
-.next/
-.env
-.venv/
+# Python
 __pycache__/
-.pytest_cache/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual Environment
+.venv/
+
+# Environment variables
+.env
+.env.*
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
