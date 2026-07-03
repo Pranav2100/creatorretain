@@ -35,7 +35,10 @@ class UserService:
         if not verify_password(request.password, user.password_hash):
             raise ValueError("Invalid email or password")
 
-        token = create_access_token(str(user.id))
+        token = create_access_token(
+            user_id=str(user.id),
+            email=user.email,
+        )
 
         return LoginResponse(
             access_token=token,

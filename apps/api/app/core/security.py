@@ -5,13 +5,18 @@ from jose import JWTError, jwt
 from app.core.settings import settings
 
 
-def create_access_token(subject: str) -> str:
+def create_access_token(
+    user_id: str,
+    email: str,
+) -> str:
     expire = datetime.now(UTC) + timedelta(
         minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
     )
 
     payload = {
-        "sub": subject,
+        "sub": user_id,
+        "email": email,
+        "type": "access",
         "exp": expire,
     }
 
