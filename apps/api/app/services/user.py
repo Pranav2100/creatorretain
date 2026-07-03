@@ -1,7 +1,8 @@
-from app.core.password import hash_password
+from app.core.password import hash_password, verify_password
+from app.core.security import create_access_token
 from app.database.models.user import User
 from app.database.repositories.user import UserRepository
-from app.schemas.auth import RegisterRequest
+from app.schemas.auth import LoginRequest, LoginResponse, RegisterRequest
 
 
 class UserService:
@@ -9,6 +10,9 @@ class UserService:
         self.repository = repository
 
     def register(self, request: RegisterRequest) -> User:
+        if request.password != request.confirm_password:
+            raise ValueError("Passwords do not match")
+
         if self.repository.email_exists(request.email):
             raise ValueError("Email already registered")
 
@@ -21,3 +25,18 @@ class UserService:
         )
 
         return self.repository.create(user)
+
+    def login(self, request: LoginRequest) -> LoginResponse:
+        user = self.repository.get_by_email(request.email)
+
+        if user is None:
+            raise ValueError("Invalid email or password")
+
+        if not verify_password(request.password, user.password_hash):
+            raise ValueError("Invalid email or password")
+
+        token = create_access_token(str(user.id))
+
+        return LoginResponse(
+            access_token=token,
+        )
