@@ -1,27 +1,29 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 
-from app.core.password import hash_password
-from app.core.security import validate_password
+from app.database.repositories.user import UserRepository
+from app.database.session import get_db
 from app.schemas.auth import RegisterRequest
+from app.services.user import UserService
 
-router = APIRouter(
-    prefix="/auth",
-    tags=["Authentication"],
-)
+router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 @router.post("/register")
-def register(request: RegisterRequest):
+def register(
+    request: RegisterRequest,
+    db: Session = Depends(get_db),
+):
+    service = UserService(UserRepository(db))
 
-    validate_password(
-        request.password,
-        request.confirm_password,
-    )
+    try:
+        user = service.register(request)
 
-    hashed_password = hash_password(request.password)
+        return {
+            "id": str(user.id),
+            "email": user.email,
+            "message": "Registration successful",
+        }
 
-    return {
-        "message": "Registration request received successfully.",
-        "email": request.email,
-        "hashed_password": hashed_password,
-    }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

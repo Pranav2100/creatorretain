@@ -6,7 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 class TimestampMixin:
     """
-    Adds automatic timestamp fields to every model.
+    Adds timestamp fields to every model.
     """
 
     created_at: Mapped[datetime] = mapped_column(
@@ -25,4 +25,5 @@ class TimestampMixin:
     deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
+        index=True,
     )

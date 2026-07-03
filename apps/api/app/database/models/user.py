@@ -1,27 +1,72 @@
-from enum import Enum
-from uuid import UUID, uuid4
+from __future__ import annotations
 
-from pydantic import BaseModel, EmailStr
+from uuid import uuid4
+
+from sqlalchemy import Boolean, Enum, String
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.common.enums.user import UserStatus
+from app.database.mixins.timestamps import TimestampMixin
+from app.database.models.base import Base
 
 
-class UserRole(str, Enum):
-    CREATOR = "creator"
-    BRAND = "brand"
-    ADMIN = "admin"
+class User(TimestampMixin, Base):
+    __tablename__ = "users"
 
+    id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid4,
+    )
 
-class User(BaseModel):
-    id: UUID = uuid4()
+    email: Mapped[str] = mapped_column(
+        String(320),
+        unique=True,
+        index=True,
+        nullable=False,
+    )
 
-    first_name: str
-    last_name: str
+    password_hash: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+    )
 
-    email: EmailStr
+    first_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
 
-    is_email_verified: bool = False
+    last_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
 
-    role: UserRole | None = None
+    phone: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+    )
 
-    is_two_factor_enabled: bool = False
+    email_verified: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
 
-    is_active: bool = True
+    phone_verified: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
+
+    two_factor_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
+
+    status: Mapped[UserStatus] = mapped_column(
+        Enum(UserStatus),
+        default=UserStatus.PENDING,
+        nullable=False,
+    )

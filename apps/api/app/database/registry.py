@@ -1,13 +1,14 @@
 """
-Import every SQLAlchemy model here.
+Imports every SQLAlchemy model.
 
-Alembic imports this file so metadata contains
-every table in the application.
+Alembic imports this file so Base.metadata
+contains every table in the application.
 """
 
 from app.database.models.base import Base
+from app.database.models.user import User
 
-# Import models below
-# from app.database.models.user import User
-
-__all__ = ["Base"]
+__all__ = [
+    "Base",
+    "User",
+]

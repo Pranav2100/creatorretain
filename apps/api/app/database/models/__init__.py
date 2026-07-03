@@ -1,3 +1,7 @@
 from app.database.models.base import Base
+from app.database.models.user import User
 
-__all__ = ["Base"]
+__all__ = [
+    "Base",
+    "User",
+]
