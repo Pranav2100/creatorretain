@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from sqlalchemy import Boolean, Enum, String
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.common.enums.user import UserStatus
 from app.database.mixins.timestamps import TimestampMixin
@@ -69,4 +69,10 @@ class User(TimestampMixin, Base):
         Enum(UserStatus),
         default=UserStatus.PENDING,
         nullable=False,
+    )
+
+    owned_workspaces = relationship(
+        "Workspace",
+        back_populates="owner",
+        cascade="all, delete-orphan",
     )
