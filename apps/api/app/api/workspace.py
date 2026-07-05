@@ -18,6 +18,44 @@ router = APIRouter(
 )
 
 
+@router.get("/check-username/{username}")
+def check_username(
+    username: str,
+    db: Session = Depends(get_db),
+):
+    service = WorkspaceService(
+        WorkspaceRepository(db),
+    )
+
+    return service.check_username(username)
+
+
+@router.get(
+    "/me",
+    response_model=WorkspaceResponse,
+)
+def get_my_workspace(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    service = WorkspaceService(
+        WorkspaceRepository(db),
+    )
+
+    try:
+        workspace = service.get_my_workspace(
+            current_user.id,
+        )
+
+        return WorkspaceResponse.model_validate(workspace)
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+
+
 @router.post(
     "",
     response_model=CreateWorkspaceResponse,

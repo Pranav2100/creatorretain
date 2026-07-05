@@ -15,6 +15,11 @@ class CreateWorkspaceRequest(BaseModel):
         max_length=100,
     )
 
+    username: str = Field(
+        min_length=3,
+        max_length=30,
+    )
+
     workspace_type: WorkspaceType
 
     legal_name: str | None = Field(
@@ -32,29 +37,18 @@ class WorkspaceResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-
     owner_user_id: UUID
-
     display_name: str
-
-    legal_name: str | None
-
     slug: str
-
     workspace_type: WorkspaceType
-
     verification_status: VerificationStatus
-
     status: WorkspaceStatus
-
+    legal_name: str | None
     bio: str | None
-
     logo_url: str | None
-
     banner_url: str | None
 
 
 class CreateWorkspaceResponse(BaseModel):
     message: str
-
     workspace: WorkspaceResponse

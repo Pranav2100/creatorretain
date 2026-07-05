@@ -32,3 +32,9 @@ class WorkspaceRepository(BaseRepository[Workspace]):
             )
             .first()
         )
+
+    def get_my_workspace(
+        self,
+        owner_user_id: UUID,
+    ) -> Workspace | None:
+        return self.get_by_owner(owner_user_id)
