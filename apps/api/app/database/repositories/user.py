@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.database.models.user import User
 from app.database.repositories.base import BaseRepository
+from uuid import UUID
 
 
 class UserRepository(BaseRepository[User]):
@@ -15,3 +16,15 @@ class UserRepository(BaseRepository[User]):
 
     def email_exists(self, email: str) -> bool:
         return self.get_by_email(email) is not None
+    
+    def get_by_id(
+        self,
+        user_id: UUID,
+    ):
+        return (
+            self.db.query(self.model)
+            .filter(
+                self.model.id == user_id,
+            )
+            .first()
+        )

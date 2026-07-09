@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from app.api.auth import router as auth_router
 from app.api.health import router as health_router
 from app.api.workspace import router as workspace_router
+from app.api import workspace_invitations
 from app.core.settings import settings
 
 app = FastAPI(
@@ -13,7 +14,7 @@ app = FastAPI(
 app.include_router(auth_router)
 app.include_router(workspace_router)
 app.include_router(health_router)
-
+app.include_router(workspace_invitations.router,)
 
 @app.get("/")
 def root():

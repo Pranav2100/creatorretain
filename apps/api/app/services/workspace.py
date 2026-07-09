@@ -4,11 +4,17 @@ from app.common.validators import validate_username
 from app.database.models.workspace import Workspace
 from app.database.repositories.workspace import WorkspaceRepository
 from app.schemas.workspace import CreateWorkspaceRequest
+from app.services.workspace_member import WorkspaceMemberService
 
 
 class WorkspaceService:
-    def __init__(self, repository: WorkspaceRepository):
+    def __init__(
+        self,
+        repository: WorkspaceRepository,
+        member_service: WorkspaceMemberService,
+    ):
         self.repository = repository
+        self.member_service = member_service
 
     def create(
         self,
@@ -38,7 +44,14 @@ class WorkspaceService:
             bio=request.bio,
         )
 
-        return self.repository.create(workspace)
+        workspace = self.repository.create(workspace)
+
+        self.member_service.create_owner(
+            workspace_id=workspace.id,
+            user_id=owner_user_id,
+        )
+
+        return workspace
 
     def check_username(self, username: str) -> dict:
         try:
@@ -76,8 +89,6 @@ class WorkspaceService:
         workspace = self.repository.get_my_workspace(owner_user_id)
 
         if workspace is None:
-            raise ValueError(
-                "Workspace not found."
-            )
+            raise ValueError("Workspace not found.")
 
         return workspace

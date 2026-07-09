@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from app.api.dependencies.auth import get_current_user
 from app.database.models.user import User
 from app.database.repositories.workspace import WorkspaceRepository
+from app.database.repositories.workspace_member import (WorkspaceMemberRepository,)
+from app.services.workspace_member import WorkspaceMemberService
 from app.database.session import get_db
 from app.schemas.workspace import (
     CreateWorkspaceRequest,
@@ -24,8 +26,11 @@ def check_username(
     db: Session = Depends(get_db),
 ):
     service = WorkspaceService(
-        WorkspaceRepository(db),
-    )
+    repository=WorkspaceRepository(db),
+    member_service=WorkspaceMemberService(
+        WorkspaceMemberRepository(db),
+    ),
+)
 
     return service.check_username(username)
 
@@ -39,8 +44,11 @@ def get_my_workspace(
     db: Session = Depends(get_db),
 ):
     service = WorkspaceService(
-        WorkspaceRepository(db),
-    )
+    repository=WorkspaceRepository(db),
+    member_service=WorkspaceMemberService(
+        WorkspaceMemberRepository(db),
+    ),
+)
 
     try:
         workspace = service.get_my_workspace(
@@ -67,8 +75,11 @@ def create_workspace(
     db: Session = Depends(get_db),
 ):
     service = WorkspaceService(
-        WorkspaceRepository(db),
-    )
+    repository=WorkspaceRepository(db),
+    member_service=WorkspaceMemberService(
+        WorkspaceMemberRepository(db),
+    ),
+)
 
     try:
         workspace = service.create(
