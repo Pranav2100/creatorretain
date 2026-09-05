@@ -61,7 +61,7 @@ def build_invitation_email(
     role = invitation.role.value
     expires = invitation.expires_at.strftime("%d %B %Y")
     url = f"{settings.APP_URL}/invite/{invitation.token}"
-    app_name = settings.APP_NAME
+    app_name = settings.EMAIL_FROM_NAME
 
     subject = f"{inviter_name} invited you to join {workspace_name}"
 

@@ -9,7 +9,10 @@ from app.api.workspace_invitations import (
 from app.api.workspace_members import (
     router as workspace_member_router,
 )
+from app.core.logging import configure_logging
 from app.core.settings import settings
+
+configure_logging()
 
 app = FastAPI(
     title=settings.APP_NAME,
