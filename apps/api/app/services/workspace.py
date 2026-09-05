@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from app.common.exceptions import ConflictError, NotFoundError
 from app.common.validators import validate_username
 from app.database.models.workspace import Workspace
 from app.database.repositories.workspace import WorkspaceRepository
@@ -24,8 +25,20 @@ class WorkspaceService:
         existing_workspace = self.repository.get_by_owner(owner_user_id)
 
         if existing_workspace:
-            raise ValueError(
+            raise ConflictError(
                 "You already own a workspace."
+            )
+
+        existing_membership = (
+            self.member_service.get_active_membership(
+                owner_user_id,
+            )
+        )
+
+        if existing_membership:
+            raise ConflictError(
+                "You already belong to a workspace. Leave it before "
+                "creating a new one."
             )
 
         validate_username(request.username)
@@ -84,11 +97,17 @@ class WorkspaceService:
 
     def get_my_workspace(
         self,
-        owner_user_id: UUID,
+        current_user_id: UUID,
     ) -> Workspace:
-        workspace = self.repository.get_my_workspace(owner_user_id)
+        """
+        Resolves through active membership, so Admins and Members
+        see the workspace they belong to, not only Owners.
+        """
+        context = self.member_service.resolve_context(
+            current_user_id,
+        )
 
-        if workspace is None:
-            raise ValueError("Workspace not found.")
+        if context.workspace is None:
+            raise NotFoundError("Workspace not found.")
 
-        return workspace
+        return context.workspace

@@ -1,12 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, status
 
 from app.api.dependencies.auth import get_current_user
+from app.api.dependencies.services import get_workspace_service
+from app.api.errors import http_error
 from app.database.models.user import User
-from app.database.repositories.workspace import WorkspaceRepository
-from app.database.repositories.workspace_member import (WorkspaceMemberRepository,)
-from app.services.workspace_member import WorkspaceMemberService
-from app.database.session import get_db
 from app.schemas.workspace import (
     CreateWorkspaceRequest,
     CreateWorkspaceResponse,
@@ -23,15 +20,8 @@ router = APIRouter(
 @router.get("/check-username/{username}")
 def check_username(
     username: str,
-    db: Session = Depends(get_db),
+    service: WorkspaceService = Depends(get_workspace_service),
 ):
-    service = WorkspaceService(
-    repository=WorkspaceRepository(db),
-    member_service=WorkspaceMemberService(
-        WorkspaceMemberRepository(db),
-    ),
-)
-
     return service.check_username(username)
 
 
@@ -41,15 +31,8 @@ def check_username(
 )
 def get_my_workspace(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    service: WorkspaceService = Depends(get_workspace_service),
 ):
-    service = WorkspaceService(
-    repository=WorkspaceRepository(db),
-    member_service=WorkspaceMemberService(
-        WorkspaceMemberRepository(db),
-    ),
-)
-
     try:
         workspace = service.get_my_workspace(
             current_user.id,
@@ -58,10 +41,7 @@ def get_my_workspace(
         return WorkspaceResponse.model_validate(workspace)
 
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e),
-        )
+        raise http_error(e)
 
 
 @router.post(
@@ -72,15 +52,8 @@ def get_my_workspace(
 def create_workspace(
     request: CreateWorkspaceRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    service: WorkspaceService = Depends(get_workspace_service),
 ):
-    service = WorkspaceService(
-    repository=WorkspaceRepository(db),
-    member_service=WorkspaceMemberService(
-        WorkspaceMemberRepository(db),
-    ),
-)
-
     try:
         workspace = service.create(
             owner_user_id=current_user.id,
@@ -93,7 +66,4 @@ def create_workspace(
         )
 
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
+        raise http_error(e)

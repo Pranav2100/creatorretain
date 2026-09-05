@@ -22,6 +22,25 @@ class BaseRepository(Generic[ModelType]):
         self.db.refresh(obj)
         return obj
 
+    def save(self, obj: ModelType) -> ModelType:
+        self.db.add(obj)
+        self.db.commit()
+        self.db.refresh(obj)
+        return obj
+
+    def add(self, obj: ModelType) -> ModelType:
+        """
+        Stages an object without committing.
+
+        Use together with commit() when several rows must
+        change atomically (for example ownership transfer).
+        """
+        self.db.add(obj)
+        return obj
+
+    def commit(self) -> None:
+        self.db.commit()
+
     def delete(self, obj: ModelType) -> None:
         self.db.delete(obj)
         self.db.commit()
