@@ -244,6 +244,120 @@ def expiry_and_history(owner, bob):
     )
 
 
+def token_for(email):
+    """Read a live token straight from the database."""
+    from app.common.enums import WorkspaceInvitationStatus
+    from app.database.models.workspace_invitation import (
+        WorkspaceInvitation,
+    )
+
+    db = TestSession()
+    try:
+        inv = (
+            db.query(WorkspaceInvitation)
+            .filter(
+                WorkspaceInvitation.email == email,
+                WorkspaceInvitation.status
+                == WorkspaceInvitationStatus.PENDING,
+            )
+            .order_by(WorkspaceInvitation.created_at.desc())
+            .first()
+        )
+        return inv.token
+    finally:
+        db.close()
+
+
+def token_flow(owner):
+    print("\n--- invitation links ---")
+
+    dana = register("dana@test.com", "Dana", "Designer")
+
+    check(
+        "owner invites dana",
+        client.post(
+            "/workspace-invitations/invite",
+            json={"email": "dana@test.com", "role": "member"},
+            headers=owner,
+        ),
+        200,
+    )
+
+    token = token_for("dana@test.com")
+
+    r = check(
+        "link preview works without signing in",
+        client.get(f"/workspace-invitations/token/{token}"),
+        200,
+    )
+    preview = r.json()
+    assert preview["workspace_name"] == "Acme Agency", preview
+    assert preview["invited_by_name"] == "Alice Admin", preview
+    assert preview["email"] == "dana@test.com", preview
+    assert preview["requires_signup"] is False, preview
+    assert preview["status"] == "pending", preview
+    assert "token" not in preview, preview
+    print("PASS  preview shows workspace and inviter, never the token")
+
+    r = check(
+        "preview for an unknown email flags signup",
+        client.get(
+            f"/workspace-invitations/token/{token_for_new_email(owner)}"
+        ),
+        200,
+    )
+    assert r.json()["requires_signup"] is True, r.json()
+    print("PASS  preview tells the frontend to route to signup")
+
+    check(
+        "a bogus token is rejected",
+        client.get("/workspace-invitations/token/not-a-real-token"),
+        404,
+    )
+
+    check(
+        "the wrong account cannot use the link",
+        client.post(
+            "/workspace-invitations/accept-by-token",
+            json={"token": token},
+            headers=owner,
+        ),
+        403,
+        "dana@test.com",
+    )
+
+    check(
+        "dana accepts by token",
+        client.post(
+            "/workspace-invitations/accept-by-token",
+            json={"token": token},
+            headers=dana,
+        ),
+        200,
+    )
+
+    check(
+        "the link cannot be reused",
+        client.post(
+            "/workspace-invitations/accept-by-token",
+            json={"token": token},
+            headers=dana,
+        ),
+        409,
+        "already",
+    )
+
+
+def token_for_new_email(owner):
+    """Invite an address with no account, return its token."""
+    client.post(
+        "/workspace-invitations/invite",
+        json={"email": "nobody@test.com", "role": "member"},
+        headers=owner,
+    )
+    return token_for("nobody@test.com")
+
+
 def main():
     owner = register("owner@test.com", "Olivia", "Owner")
     alice = register("alice@test.com", "Alice", "Admin")
@@ -519,6 +633,7 @@ def main():
     )
 
     expiry_and_history(alice, bob)
+    token_flow(alice)
 
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed")
     for f in FAILED:

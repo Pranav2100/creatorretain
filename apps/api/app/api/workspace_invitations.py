@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
 from app.api.dependencies.services import (
@@ -8,8 +9,12 @@ from app.api.dependencies.services import (
 )
 from app.api.errors import http_error
 from app.database.models.user import User
+from app.database.repositories.user import UserRepository
+from app.database.session import get_db
 from app.schemas.workspace_invitation import (
+    AcceptByTokenRequest,
     AcceptInvitationResponse,
+    InvitationPreviewResponse,
     InvitationResponse,
     InviteMemberRequest,
     SentInvitationItem,
@@ -66,6 +71,62 @@ def accept_invitation(
     try:
         service.accept_invitation(
             invitation_id,
+            current_user.id,
+        )
+
+        return AcceptInvitationResponse(
+            message="Invitation accepted successfully.",
+        )
+
+    except ValueError as e:
+        raise http_error(e)
+
+
+@router.get(
+    "/token/{token}",
+    response_model=InvitationPreviewResponse,
+)
+def preview_invitation(
+    token: str,
+    db: Session = Depends(get_db),
+    service: WorkspaceInvitationService = Depends(
+        get_workspace_invitation_service,
+    ),
+):
+    """
+    Public. Lets an invitation link show who invited whom before
+    the recipient has signed in or created an account.
+    """
+    try:
+        invitation = service.preview_by_token(token)
+
+        existing_user = UserRepository(db).get_by_email(
+            invitation.email,
+        )
+
+        return InvitationPreviewResponse.from_invitation(
+            invitation,
+            requires_signup=existing_user is None,
+        )
+
+    except ValueError as e:
+        raise http_error(e)
+
+
+@router.post(
+    "/accept-by-token",
+    response_model=AcceptInvitationResponse,
+)
+def accept_by_token(
+    request: AcceptByTokenRequest,
+    current_user: User = Depends(get_current_user),
+    service: WorkspaceInvitationService = Depends(
+        get_workspace_invitation_service,
+    ),
+):
+    try:
+        service.accept_by_token(
+            request.token,
             current_user.id,
         )
 

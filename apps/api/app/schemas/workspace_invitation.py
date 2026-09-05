@@ -76,6 +76,52 @@ class WorkspaceInvitationItem(BaseModel):
         )
 
 
+class AcceptByTokenRequest(BaseModel):
+    token: str
+
+
+class InvitationPreviewResponse(BaseModel):
+    """
+    Safe, public view of an invitation link. Deliberately excludes
+    the token, ids and anything about the workspace's members.
+    """
+
+    workspace_name: str | None
+    invited_by_name: str | None
+    email: EmailStr
+    role: WorkspaceRole
+    status: WorkspaceInvitationStatus
+    is_expired: bool
+    requires_signup: bool
+    expires_at: datetime
+
+    @classmethod
+    def from_invitation(
+        cls,
+        invitation: WorkspaceInvitation,
+        requires_signup: bool,
+    ) -> "InvitationPreviewResponse":
+        inviter = invitation.inviter
+        workspace = invitation.workspace
+
+        return cls(
+            workspace_name=(
+                workspace.display_name if workspace else None
+            ),
+            invited_by_name=(
+                f"{inviter.first_name} {inviter.last_name}"
+                if inviter
+                else None
+            ),
+            email=invitation.email,
+            role=invitation.role,
+            status=invitation.effective_status,
+            is_expired=invitation.is_expired,
+            requires_signup=requires_signup,
+            expires_at=invitation.expires_at,
+        )
+
+
 class WorkspaceInvitationListResponse(BaseModel):
     invitations: list[WorkspaceInvitationItem]
 

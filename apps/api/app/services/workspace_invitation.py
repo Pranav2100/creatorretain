@@ -227,6 +227,69 @@ class WorkspaceInvitationService:
             current_user_id,
         )
 
+        return self._complete_acceptance(
+            invitation,
+            current_user_id,
+        )
+
+    def preview_by_token(
+        self,
+        token: str,
+    ) -> WorkspaceInvitation:
+        """
+        Public lookup for an invitation link. Returns the invitation
+        so the recipient can see who invited them before signing in.
+        """
+        invitation = self.invitation_repository.get_by_token(token)
+
+        if invitation is None:
+            raise NotFoundError("This invitation link is not valid.")
+
+        return invitation
+
+    def accept_by_token(
+        self,
+        token: str,
+        current_user_id: UUID,
+    ) -> WorkspaceInvitation:
+        invitation = self.invitation_repository.get_by_token(token)
+
+        if invitation is None:
+            raise NotFoundError("This invitation link is not valid.")
+
+        current_user = self._get_user(current_user_id)
+
+        if current_user.email.lower() != invitation.email.lower():
+            raise PermissionDeniedError(
+                f"This invitation was sent to {invitation.email}. "
+                "Sign in with that address to accept it."
+            )
+
+        if invitation.status != WorkspaceInvitationStatus.PENDING:
+            raise ConflictError(
+                f"This invitation was already "
+                f"{invitation.status.value}."
+            )
+
+        if invitation.is_expired:
+            invitation.status = WorkspaceInvitationStatus.EXPIRED
+            self.invitation_repository.save(invitation)
+
+            raise ConflictError(
+                "This invitation has expired. You can ask the "
+                "workspace to send it again."
+            )
+
+        return self._complete_acceptance(
+            invitation,
+            current_user_id,
+        )
+
+    def _complete_acceptance(
+        self,
+        invitation: WorkspaceInvitation,
+        current_user_id: UUID,
+    ) -> WorkspaceInvitation:
         existing_membership = (
             self.member_repository.get_active_membership(
                 current_user_id,
@@ -250,7 +313,7 @@ class WorkspaceInvitationService:
         self.invitation_repository.save(invitation)
 
         # A user can only belong to one workspace, so any other
-        # pending invitation is now moot.
+        # live invitation is now moot.
         for pending in (
             self.invitation_repository.get_live_pending_by_email(
                 invitation.email,

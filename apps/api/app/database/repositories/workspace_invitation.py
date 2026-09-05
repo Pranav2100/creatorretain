@@ -40,8 +40,16 @@ class WorkspaceInvitationRepository(
         self,
         token: str,
     ) -> WorkspaceInvitation | None:
+        """
+        Loads workspace and inviter too, so an invitation link can
+        be previewed before the recipient has an account.
+        """
         return (
             self.db.query(WorkspaceInvitation)
+            .options(
+                joinedload(WorkspaceInvitation.workspace),
+                joinedload(WorkspaceInvitation.inviter),
+            )
             .filter(
                 WorkspaceInvitation.token == token,
             )
