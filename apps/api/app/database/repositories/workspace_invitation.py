@@ -87,6 +87,21 @@ class WorkspaceInvitationRepository(
             .all()
         )
     
+    def get_by_workspace(
+        self,
+        workspace_id: UUID,
+    ):
+        return (
+            self.db.query(self.model)
+            .filter(
+                self.model.workspace_id == workspace_id,
+            )
+            .order_by(
+                self.model.created_at.desc(),
+            )
+            .all()
+        )
+    
     def get_pending_for_user(
         self,
         user_id: UUID,

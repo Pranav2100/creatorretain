@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 
 from app.common.enums import (
     InvitableWorkspaceRole,
@@ -36,3 +36,18 @@ class WorkspaceInvitationItem(BaseModel):
 
 class WorkspaceInvitationListResponse(BaseModel):
     invitations: list[WorkspaceInvitationItem]
+
+class SentInvitationItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    email: str
+    role: WorkspaceRole
+    status: WorkspaceInvitationStatus
+    invited_by: UUID
+    created_at: datetime
+    expires_at: datetime
+
+
+class SentInvitationListResponse(BaseModel):
+    invitations: list[SentInvitationItem]

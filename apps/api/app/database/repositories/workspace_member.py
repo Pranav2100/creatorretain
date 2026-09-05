@@ -40,6 +40,36 @@ class WorkspaceMemberRepository(BaseRepository[WorkspaceMember]):
             .first()
         )
     
+    def get_active_membership_by_user(
+    self,
+    user_id: UUID,
+    ):
+        return (
+            self.db.query(self.model)
+            .filter(
+                self.model.user_id == user_id,
+                self.model.status == WorkspaceMemberStatus.ACTIVE,
+        )
+        .first()
+    )
+    
+    def get_by_workspace(
+        self,
+        workspace_id: UUID,
+    ):
+        return (
+            self.db.query(self.model)
+            .filter(
+                self.model.workspace_id == workspace_id,
+                self.model.status == WorkspaceMemberStatus.ACTIVE,
+            )
+            .order_by(
+                self.model.role.asc(),
+                self.model.created_at.asc(),
+            )
+            .all()
+        )
+    
     def create_member(
         self,
         member,
@@ -48,3 +78,4 @@ class WorkspaceMemberRepository(BaseRepository[WorkspaceMember]):
         self.db.commit()
         self.db.refresh(member)
         return member
+    

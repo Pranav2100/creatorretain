@@ -141,6 +141,44 @@ class WorkspaceInvitationService:
 
         return invitations
     
+    def get_sent_invitations(
+        self,
+        current_user_id: UUID,
+    ):
+        current_user = self.user_repository.get_by_id(
+            current_user_id,
+        )
+
+        if current_user is None:
+            raise ValueError("User not found.")
+
+        workspace = self.workspace_repository.get_by_owner(
+            current_user_id,
+        )
+
+        if workspace is None:
+            raise ValueError("Workspace not found.")
+
+        membership = self.member_repository.get_by_workspace_and_user(
+            workspace.id,
+            current_user_id,
+        )
+
+        if membership is None:
+            raise ValueError("Access denied.")
+
+        if membership.role not in (
+            WorkspaceRole.OWNER,
+            WorkspaceRole.ADMIN,
+        ):
+            raise ValueError(
+                "You don't have permission to view invitations."
+            )
+
+        return self.invitation_repository.get_by_workspace(
+            workspace.id,
+        )
+    
     def accept_invitation(
         self,
         invitation_id: UUID,
@@ -214,3 +252,161 @@ class WorkspaceInvitationService:
             self.invitation_repository.save(pending)
 
         return invitation
+    
+    
+    def decline_invitation(
+        self,
+        invitation_id: UUID,
+        current_user_id: UUID,
+    ) -> WorkspaceInvitation:
+
+        invitation = self.invitation_repository.get_by_id(
+            invitation_id,
+        )
+
+        if invitation is None:
+            raise ValueError("Invitation not found.")
+
+        if invitation.status != WorkspaceInvitationStatus.PENDING:
+            raise ValueError("Invitation is no longer pending.")
+
+        if invitation.expires_at < datetime.now(UTC):
+            invitation.status = WorkspaceInvitationStatus.EXPIRED
+            self.invitation_repository.save(invitation)
+
+            raise ValueError("Invitation has expired.")
+
+        current_user = self.user_repository.get_by_id(
+            current_user_id,
+        )
+
+        if current_user is None:
+            raise ValueError("User not found.")
+
+        if current_user.email.lower() != invitation.email.lower():
+            raise ValueError(
+                "This invitation does not belong to your account."
+            )
+
+        invitation.status = WorkspaceInvitationStatus.DECLINED
+
+        return self.invitation_repository.save(
+            invitation,
+        )
+    
+    def cancel_invitation(
+        self,
+        invitation_id: UUID,
+        current_user_id: UUID,
+    ) -> WorkspaceInvitation:
+
+        invitation = self.invitation_repository.get_by_id(
+            invitation_id,
+        )
+
+        if invitation is None:
+            raise ValueError("Invitation not found.")
+
+        if invitation.status != WorkspaceInvitationStatus.PENDING:
+            raise ValueError("Only pending invitations can be cancelled.")
+
+        current_user = self.user_repository.get_by_id(
+            current_user_id,
+        )
+
+        if current_user is None:
+            raise ValueError("User not found.")
+
+        workspace = self.workspace_repository.get_by_owner(
+            current_user_id,
+        )
+
+        if workspace is None:
+            raise ValueError("Workspace not found.")
+
+        membership = self.member_repository.get_by_workspace_and_user(
+            workspace.id,
+            current_user_id,
+        )
+
+        if membership is None:
+            raise ValueError("Access denied.")
+
+        if membership.role not in (
+            WorkspaceRole.OWNER,
+            WorkspaceRole.ADMIN,
+        ):
+            raise ValueError(
+                "You don't have permission to cancel invitations."
+            )
+
+        if invitation.workspace_id != workspace.id:
+            raise ValueError(
+                "You cannot cancel invitations from another workspace."
+            )
+
+        invitation.status = WorkspaceInvitationStatus.CANCELLED
+
+        return self.invitation_repository.save(
+            invitation,
+        )
+    
+    def resend_invitation(
+        self,
+        invitation_id: UUID,
+        current_user_id: UUID,
+    ) -> WorkspaceInvitation:
+
+        invitation = self.invitation_repository.get_by_id(
+            invitation_id,
+        )
+
+        if invitation is None:
+            raise ValueError("Invitation not found.")
+
+        if invitation.status != WorkspaceInvitationStatus.PENDING:
+            raise ValueError(
+                "Only pending invitations can be resent."
+            )
+
+        current_user = self.user_repository.get_by_id(
+            current_user_id,
+        )
+
+        if current_user is None:
+            raise ValueError("User not found.")
+
+        workspace = self.workspace_repository.get_by_owner(
+            current_user_id,
+        )
+
+        if workspace is None:
+            raise ValueError("Workspace not found.")
+
+        membership = self.member_repository.get_by_workspace_and_user(
+            workspace.id,
+            current_user_id,
+        )
+
+        if membership is None:
+            raise ValueError("Access denied.")
+
+        if membership.role not in (
+            WorkspaceRole.OWNER,
+            WorkspaceRole.ADMIN,
+        ):
+            raise ValueError(
+                "You don't have permission to resend invitations."
+            )
+
+        if invitation.workspace_id != workspace.id:
+            raise ValueError(
+                "You cannot resend invitations from another workspace."
+            )
+
+        invitation.token = secrets.token_urlsafe(32)
+        invitation.expires_at = datetime.now(UTC) + timedelta(days=7)
+
+        return self.invitation_repository.save(
+            invitation,
+        )
