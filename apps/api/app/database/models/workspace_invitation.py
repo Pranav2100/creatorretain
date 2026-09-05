@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, Enum, ForeignKey, String
@@ -83,6 +83,11 @@ class WorkspaceInvitation(Base, TimestampMixin):
         nullable=False,
     )
 
+    resend_requested_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
     workspace: Mapped["Workspace"] = relationship()
 
     user: Mapped["User"] = relationship(
@@ -92,6 +97,24 @@ class WorkspaceInvitation(Base, TimestampMixin):
     inviter: Mapped["User"] = relationship(
         foreign_keys=[invited_by],
     )
+
+    @property
+    def is_expired(self) -> bool:
+        return self.expires_at < datetime.now(UTC)
+
+    @property
+    def effective_status(self) -> WorkspaceInvitationStatus:
+        """
+        A pending invitation past its expiry reads as expired,
+        even before anything writes the new status to the row.
+        """
+        if (
+            self.status == WorkspaceInvitationStatus.PENDING
+            and self.is_expired
+        ):
+            return WorkspaceInvitationStatus.EXPIRED
+
+        return self.status
 
     def __repr__(self) -> str:
         return (

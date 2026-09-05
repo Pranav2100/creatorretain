@@ -28,7 +28,7 @@ from app.services.workspace_member import (
     WorkspaceMemberService,
 )
 
-INVITATION_TTL = timedelta(days=7)
+INVITATION_TTL = timedelta(days=30)
 
 
 class WorkspaceInvitationService:
@@ -133,13 +133,64 @@ class WorkspaceInvitationService:
             current_user_id,
         )
 
-        if invitation.status != WorkspaceInvitationStatus.PENDING:
+        if invitation.status not in (
+            WorkspaceInvitationStatus.PENDING,
+            WorkspaceInvitationStatus.EXPIRED,
+        ):
             raise ConflictError(
-                "Only pending invitations can be resent."
+                f"A {invitation.status.value} invitation cannot be "
+                "resent. Send a new invitation instead."
             )
 
         invitation.token = secrets.token_urlsafe(32)
         invitation.expires_at = datetime.now(UTC) + INVITATION_TTL
+        invitation.status = WorkspaceInvitationStatus.PENDING
+        invitation.resend_requested_at = None
+
+        return self.invitation_repository.save(invitation)
+
+    def request_resend(
+        self,
+        invitation_id: UUID,
+        current_user_id: UUID,
+    ) -> WorkspaceInvitation:
+        """
+        Lets the recipient of a lapsed invitation ask the workspace
+        to send it again, instead of silently losing the connection.
+        """
+        invitation = self.invitation_repository.get_by_id(
+            invitation_id,
+        )
+
+        if invitation is None:
+            raise NotFoundError("Invitation not found.")
+
+        current_user = self._get_user(current_user_id)
+
+        if current_user.email.lower() != invitation.email.lower():
+            raise PermissionDeniedError(
+                "This invitation does not belong to your account."
+            )
+
+        status = invitation.effective_status
+
+        if status == WorkspaceInvitationStatus.PENDING:
+            raise ConflictError(
+                "This invitation is still open. You can accept it."
+            )
+
+        if status != WorkspaceInvitationStatus.EXPIRED:
+            raise ConflictError(
+                f"A {status.value} invitation cannot be revived."
+            )
+
+        if invitation.resend_requested_at is not None:
+            raise ConflictError(
+                "You have already asked for this to be resent."
+            )
+
+        invitation.status = WorkspaceInvitationStatus.EXPIRED
+        invitation.resend_requested_at = datetime.now(UTC)
 
         return self.invitation_repository.save(invitation)
 
@@ -200,8 +251,10 @@ class WorkspaceInvitationService:
 
         # A user can only belong to one workspace, so any other
         # pending invitation is now moot.
-        for pending in self.invitation_repository.get_by_email(
-            invitation.email,
+        for pending in (
+            self.invitation_repository.get_live_pending_by_email(
+                invitation.email,
+            )
         ):
             if pending.id == invitation.id:
                 continue

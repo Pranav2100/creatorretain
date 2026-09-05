@@ -152,6 +152,34 @@ def resend_invitation(
         raise http_error(e)
 
 
+@router.post(
+    "/{invitation_id}/request-resend",
+    response_model=InvitationResponse,
+)
+def request_resend(
+    invitation_id: UUID,
+    current_user: User = Depends(get_current_user),
+    service: WorkspaceInvitationService = Depends(
+        get_workspace_invitation_service,
+    ),
+):
+    try:
+        service.request_resend(
+            invitation_id,
+            current_user.id,
+        )
+
+        return InvitationResponse(
+            message=(
+                "We've let the workspace know you'd like this "
+                "invitation resent."
+            ),
+        )
+
+    except ValueError as e:
+        raise http_error(e)
+
+
 @router.get(
     "",
     response_model=WorkspaceInvitationListResponse,
@@ -169,7 +197,7 @@ def get_my_invitations(
 
         return WorkspaceInvitationListResponse(
             invitations=[
-                WorkspaceInvitationItem.model_validate(invitation)
+                WorkspaceInvitationItem.from_invitation(invitation)
                 for invitation in invitations
             ]
         )
@@ -195,7 +223,7 @@ def get_sent_invitations(
 
         return SentInvitationListResponse(
             invitations=[
-                SentInvitationItem.model_validate(invitation)
+                SentInvitationItem.from_invitation(invitation)
                 for invitation in invitations
             ]
         )

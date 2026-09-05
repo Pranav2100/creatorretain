@@ -6,7 +6,7 @@ whole Owner/Admin/Member matrix can be exercised without Supabase.
 """
 
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["JWT_SECRET_KEY"] = "test-secret"
@@ -29,16 +29,20 @@ Base.metadata.create_all(engine)
 
 # SQLite drops tzinfo on read, so keep both sides of the expiry
 # comparison naive inside the harness.
+import app.database.models.workspace_invitation as inv_model  # noqa: E402
+import app.database.repositories.workspace_invitation as inv_repo  # noqa: E402
 import app.services.workspace_invitation as inv_module  # noqa: E402
 
 
 class _Naive(datetime):
     @classmethod
     def now(cls, tz=None):
-        return datetime.utcnow()
+        return datetime.now()
 
 
 inv_module.datetime = _Naive
+inv_model.datetime = _Naive
+inv_repo.datetime = _Naive
 
 from fastapi.testclient import TestClient  # noqa: E402
 
@@ -95,6 +99,149 @@ def register(email, first="Test", last="User"):
     assert login.status_code == 200, login.text
     token = login.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+
+def pending_invitation_id(headers):
+    """History now includes past invitations, so pick the live one."""
+    items = client.get("/workspace-invitations", headers=headers).json()[
+        "invitations"
+    ]
+    return next(i["id"] for i in items if i["status"] == "pending")
+
+
+def expire_invitation(email):
+    """Backdate the newest pending invitation for an address."""
+    from app.common.enums import WorkspaceInvitationStatus
+    from app.database.models.workspace_invitation import (
+        WorkspaceInvitation,
+    )
+
+    db = TestSession()
+    try:
+        inv = (
+            db.query(WorkspaceInvitation)
+            .filter(
+                WorkspaceInvitation.email == email,
+                WorkspaceInvitation.status
+                == WorkspaceInvitationStatus.PENDING,
+            )
+            .order_by(WorkspaceInvitation.created_at.desc())
+            .first()
+        )
+        inv.expires_at = datetime.now() - timedelta(days=1)
+        db.add(inv)
+        db.commit()
+        return str(inv.id)
+    finally:
+        db.close()
+
+
+def expiry_and_history(owner, bob):
+    print("\n--- expiry, history and resend requests ---")
+
+    check(
+        "owner invites bob again",
+        client.post(
+            "/workspace-invitations/invite",
+            json={"email": "bob@test.com", "role": "member"},
+            headers=owner,
+        ),
+        200,
+    )
+
+    invitation_id = expire_invitation("bob@test.com")
+
+    r = check(
+        "bob still sees the lapsed invitation",
+        client.get("/workspace-invitations", headers=bob),
+        200,
+    )
+    items = r.json()["invitations"]
+    current = next(i for i in items if i["id"] == invitation_id)
+    assert current["status"] == "expired", current
+    assert current["can_request_resend"] is True, current
+    assert current["workspace_name"] == "Acme Agency", current
+    assert current["invited_by_name"], current
+    print("PASS  lapsed invitation reads as expired, with workspace and inviter")
+
+    assert len(items) > 1, items
+    print(f"PASS  full history returned ({len(items)} invitations)")
+
+    check(
+        "an expired invitation no longer blocks a new one",
+        client.post(
+            "/workspace-invitations/invite",
+            json={"email": "bob@test.com", "role": "member"},
+            headers=owner,
+        ),
+        200,
+    )
+
+    check(
+        "bob requests a resend",
+        client.post(
+            f"/workspace-invitations/{invitation_id}/request-resend",
+            headers=bob,
+        ),
+        200,
+    )
+
+    check(
+        "requesting twice is rejected",
+        client.post(
+            f"/workspace-invitations/{invitation_id}/request-resend",
+            headers=bob,
+        ),
+        409,
+        "already asked",
+    )
+
+    r = check(
+        "owner sees the resend request",
+        client.get("/workspace-invitations/sent", headers=owner),
+        200,
+    )
+    requested = next(
+        i for i in r.json()["invitations"] if i["id"] == invitation_id
+    )
+    assert requested["resend_requested_at"] is not None, requested
+    assert requested["status"] == "expired", requested
+    print("PASS  sent list flags the request and shows expired status")
+
+    check(
+        "owner resends the expired invitation",
+        client.post(
+            f"/workspace-invitations/{invitation_id}/resend",
+            headers=owner,
+        ),
+        200,
+    )
+
+    r = client.get("/workspace-invitations", headers=bob)
+    revived = next(
+        i for i in r.json()["invitations"] if i["id"] == invitation_id
+    )
+    assert revived["status"] == "pending", revived
+    assert revived["resend_requested_at"] is None, revived
+    print("PASS  resend revives it to pending and clears the request")
+
+    check(
+        "bob accepts the revived invitation",
+        client.post(
+            f"/workspace-invitations/{invitation_id}/accept",
+            headers=bob,
+        ),
+        200,
+    )
+
+    check(
+        "a declined invitation cannot be revived",
+        client.post(
+            f"/workspace-invitations/{invitation_id}/request-resend",
+            headers=bob,
+        ),
+        409,
+    )
 
 
 def main():
@@ -154,9 +301,7 @@ def main():
         200,
     )
 
-    invitation_id = client.get(
-        "/workspace-invitations", headers=alice
-    ).json()["invitations"][0]["id"]
+    invitation_id = pending_invitation_id(alice)
 
     check(
         "alice accepts",
@@ -229,9 +374,7 @@ def main():
         200,
     )
 
-    bob_invitation = client.get(
-        "/workspace-invitations", headers=bob
-    ).json()["invitations"][0]["id"]
+    bob_invitation = pending_invitation_id(bob)
 
     check(
         "bob accepts",
@@ -312,9 +455,7 @@ def main():
         200,
     )
 
-    bob_invitation = client.get(
-        "/workspace-invitations", headers=bob
-    ).json()["invitations"][0]["id"]
+    bob_invitation = pending_invitation_id(bob)
 
     check(
         "bob re-accepts (row reactivated, no unique violation)",
@@ -376,6 +517,8 @@ def main():
         client.post("/workspace-members/leave", headers=owner),
         200,
     )
+
+    expiry_and_history(alice, bob)
 
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed")
     for f in FAILED:

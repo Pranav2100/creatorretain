@@ -1,5 +1,7 @@
+from datetime import UTC, datetime
 from uuid import UUID
-from sqlalchemy.orm import Session
+
+from sqlalchemy.orm import Session, joinedload
 
 from app.common.enums import WorkspaceInvitationStatus
 from app.database.models.workspace_invitation import WorkspaceInvitation
@@ -17,6 +19,11 @@ class WorkspaceInvitationRepository(
         workspace_id,
         email: str,
     ) -> WorkspaceInvitation | None:
+        """
+        Only a live invitation blocks a new one. A pending row that
+        has lapsed is treated as absent, so an ignored invitation
+        never locks an address out.
+        """
         return (
             self.db.query(WorkspaceInvitation)
             .filter(
@@ -24,6 +31,7 @@ class WorkspaceInvitationRepository(
                 WorkspaceInvitation.email == email,
                 WorkspaceInvitation.status
                 == WorkspaceInvitationStatus.PENDING,
+                WorkspaceInvitation.expires_at > datetime.now(UTC),
             )
             .first()
         )
@@ -78,11 +86,38 @@ class WorkspaceInvitationRepository(
         self,
         email: str,
     ):
+        """
+        Every invitation ever sent to this address, newest first.
+
+        History is kept visible so someone returning after months
+        can still see who tried to reach them.
+        """
+        return (
+            self.db.query(self.model)
+            .options(
+                joinedload(self.model.workspace),
+                joinedload(self.model.inviter),
+            )
+            .filter(
+                self.model.email == email.lower().strip(),
+            )
+            .order_by(
+                self.model.created_at.desc(),
+            )
+            .all()
+        )
+
+    def get_live_pending_by_email(
+        self,
+        email: str,
+    ):
+        """Pending and not yet lapsed."""
         return (
             self.db.query(self.model)
             .filter(
                 self.model.email == email.lower().strip(),
                 self.model.status == WorkspaceInvitationStatus.PENDING,
+                self.model.expires_at > datetime.now(UTC),
             )
             .all()
         )
@@ -93,6 +128,7 @@ class WorkspaceInvitationRepository(
     ):
         return (
             self.db.query(self.model)
+            .options(joinedload(self.model.inviter))
             .filter(
                 self.model.workspace_id == workspace_id,
             )
