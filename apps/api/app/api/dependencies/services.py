@@ -10,6 +10,7 @@ from app.database.repositories.workspace_member import (
     WorkspaceMemberRepository,
 )
 from app.database.session import get_db
+from app.services.email import get_email_sender
 from app.services.workspace import WorkspaceService
 from app.services.workspace_invitation import (
     WorkspaceInvitationService,
@@ -44,4 +45,5 @@ def get_workspace_invitation_service(
         invitation_repository=WorkspaceInvitationRepository(db),
         user_repository=UserRepository(db),
         member_service=get_workspace_member_service(db),
+        email_sender=get_email_sender(),
     )

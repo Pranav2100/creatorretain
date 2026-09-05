@@ -1,3 +1,4 @@
+import logging
 import secrets
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -13,6 +14,7 @@ from app.common.exceptions import (
     PermissionDeniedError,
 )
 from app.common.permissions import WorkspacePermission
+from app.core.settings import settings
 from app.database.models.workspace_invitation import WorkspaceInvitation
 from app.database.repositories.user import UserRepository
 from app.database.repositories.workspace import WorkspaceRepository
@@ -23,12 +25,19 @@ from app.database.repositories.workspace_member import (
     WorkspaceMemberRepository,
 )
 from app.schemas.workspace_invitation import InviteMemberRequest
+from app.services.email import EmailSender
+from app.services.email.templates import (
+    build_invitation_email,
+    build_resend_request_email,
+)
 from app.services.workspace_member import (
     WorkspaceContext,
     WorkspaceMemberService,
 )
 
-INVITATION_TTL = timedelta(days=30)
+logger = logging.getLogger("app.invitations")
+
+INVITATION_TTL = timedelta(days=settings.INVITATION_TTL_DAYS)
 
 
 class WorkspaceInvitationService:
@@ -39,12 +48,14 @@ class WorkspaceInvitationService:
         invitation_repository: WorkspaceInvitationRepository,
         user_repository: UserRepository,
         member_service: WorkspaceMemberService,
+        email_sender: EmailSender,
     ):
         self.workspace_repository = workspace_repository
         self.member_repository = member_repository
         self.invitation_repository = invitation_repository
         self.user_repository = user_repository
         self.member_service = member_service
+        self.email_sender = email_sender
 
     # ------------------------------------------------------------------
     # Sending
@@ -121,7 +132,11 @@ class WorkspaceInvitationService:
             expires_at=datetime.now(UTC) + INVITATION_TTL,
         )
 
-        return self.invitation_repository.create(invitation)
+        invitation = self.invitation_repository.create(invitation)
+
+        self._deliver_invitation(invitation)
+
+        return invitation
 
     def resend_invitation(
         self,
@@ -147,7 +162,11 @@ class WorkspaceInvitationService:
         invitation.status = WorkspaceInvitationStatus.PENDING
         invitation.resend_requested_at = None
 
-        return self.invitation_repository.save(invitation)
+        invitation = self.invitation_repository.save(invitation)
+
+        self._deliver_invitation(invitation)
+
+        return invitation
 
     def request_resend(
         self,
@@ -192,7 +211,11 @@ class WorkspaceInvitationService:
         invitation.status = WorkspaceInvitationStatus.EXPIRED
         invitation.resend_requested_at = datetime.now(UTC)
 
-        return self.invitation_repository.save(invitation)
+        invitation = self.invitation_repository.save(invitation)
+
+        self._notify_resend_request(invitation)
+
+        return invitation
 
     def cancel_invitation(
         self,
@@ -371,6 +394,49 @@ class WorkspaceInvitationService:
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
+
+    def _deliver_invitation(
+        self,
+        invitation: WorkspaceInvitation,
+    ) -> None:
+        """
+        Delivery must never undo the invitation. If the provider is
+        down, the row still exists and can be resent.
+        """
+        try:
+            self.email_sender.send(
+                build_invitation_email(invitation),
+            )
+        except Exception:
+            logger.exception(
+                "Could not send invitation %s to %s",
+                invitation.id,
+                invitation.email,
+            )
+
+    def _notify_resend_request(
+        self,
+        invitation: WorkspaceInvitation,
+    ) -> None:
+        try:
+            inviter = self.user_repository.get_by_id(
+                invitation.invited_by,
+            )
+
+            if inviter is None:
+                return
+
+            self.email_sender.send(
+                build_resend_request_email(
+                    invitation,
+                    inviter.email,
+                ),
+            )
+        except Exception:
+            logger.exception(
+                "Could not notify %s of a resend request",
+                invitation.invited_by,
+            )
 
     def _get_user(self, user_id: UUID):
         user = self.user_repository.get_by_id(user_id)

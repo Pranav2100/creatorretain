@@ -44,6 +44,19 @@ inv_module.datetime = _Naive
 inv_model.datetime = _Naive
 inv_repo.datetime = _Naive
 
+import app.api.dependencies.services as services_module  # noqa: E402
+from app.services.email.base import EmailSender  # noqa: E402
+
+SENT = []
+
+
+class CapturingSender(EmailSender):
+    def send(self, message):
+        SENT.append(message)
+
+
+services_module.get_email_sender = lambda: CapturingSender()
+
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.database.session import get_db  # noqa: E402
@@ -358,6 +371,78 @@ def token_for_new_email(owner):
     return token_for("nobody@test.com")
 
 
+def email_delivery(owner):
+    print("\n--- email delivery ---")
+
+    SENT.clear()
+
+    erin = register("erin@test.com", "Erin", "Editor")
+
+    client.post(
+        "/workspace-invitations/invite",
+        json={"email": "erin@test.com", "role": "member"},
+        headers=owner,
+    )
+
+    assert len(SENT) == 1, SENT
+    mail = SENT[0]
+    assert mail.to == "erin@test.com", mail.to
+    assert "Acme Agency" in mail.subject, mail.subject
+    assert "Alice Admin" in mail.subject, mail.subject
+    print(f"PASS  invite sends one email: {mail.subject!r}")
+
+    token = token_for("erin@test.com")
+    assert token in mail.text_body, "link missing from text part"
+    assert token in mail.html_body, "link missing from html part"
+    assert "/invite/" in mail.text_body, mail.text_body
+    print("PASS  both parts carry the accept link")
+
+    assert "member" in mail.text_body
+    assert "<table" in mail.html_body
+    assert "<!DOCTYPE html>" in mail.html_body
+    print("PASS  html part is table-based, text part names the role")
+
+    SENT.clear()
+    expire_invitation("erin@test.com")
+
+    invitation_id = next(
+        i["id"]
+        for i in client.get(
+            "/workspace-invitations", headers=erin
+        ).json()["invitations"]
+        if i["status"] == "expired"
+    )
+
+    client.post(
+        f"/workspace-invitations/{invitation_id}/request-resend",
+        headers=erin,
+    )
+
+    assert len(SENT) == 1, SENT
+    assert SENT[0].to == "alice@test.com", SENT[0].to
+    assert "erin@test.com" in SENT[0].subject, SENT[0].subject
+    print(f"PASS  resend request notifies the inviter: {SENT[0].subject!r}")
+
+    SENT.clear()
+    client.post(
+        f"/workspace-invitations/{invitation_id}/resend",
+        headers=owner,
+    )
+
+    assert len(SENT) == 1, SENT
+    assert SENT[0].to == "erin@test.com", SENT[0].to
+    print("PASS  resend delivers a fresh invitation email")
+
+    SENT.clear()
+    client.post(
+        "/workspace-invitations/invite",
+        json={"email": "erin@test.com", "role": "member"},
+        headers=owner,
+    )
+    assert SENT == [], "a rejected invite should send nothing"
+    print("PASS  a rejected invite sends nothing")
+
+
 def main():
     owner = register("owner@test.com", "Olivia", "Owner")
     alice = register("alice@test.com", "Alice", "Admin")
@@ -634,6 +719,7 @@ def main():
 
     expiry_and_history(alice, bob)
     token_flow(alice)
+    email_delivery(alice)
 
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed")
     for f in FAILED:
