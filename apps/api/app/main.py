@@ -2,6 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auth import router as auth_router
+from app.api.creator_profile import (
+    categories_router,
+    router as creator_profile_router,
+)
 from app.api.health import router as health_router
 from app.api.workspace import router as workspace_router
 from app.api.workspace_invitations import (
@@ -30,6 +34,8 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(workspace_router)
+app.include_router(creator_profile_router)
+app.include_router(categories_router)
 app.include_router(workspace_member_router)
 app.include_router(workspace_invitation_router)
 app.include_router(health_router)
