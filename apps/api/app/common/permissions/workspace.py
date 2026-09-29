@@ -10,6 +10,7 @@ class WorkspacePermission(StrEnum):
     REMOVE_MEMBERS = "remove_members"
     CHANGE_ROLES = "change_roles"
     TRANSFER_OWNERSHIP = "transfer_ownership"
+    MANAGE_BILLING = "manage_billing"
     DELETE_WORKSPACE = "delete_workspace"
     LEAVE_WORKSPACE = "leave_workspace"
 
@@ -23,6 +24,7 @@ ROLE_PERMISSIONS: dict[WorkspaceRole, frozenset[WorkspacePermission]] = {
             WorkspacePermission.REMOVE_MEMBERS,
             WorkspacePermission.CHANGE_ROLES,
             WorkspacePermission.TRANSFER_OWNERSHIP,
+            WorkspacePermission.MANAGE_BILLING,
             WorkspacePermission.DELETE_WORKSPACE,
         }
     ),

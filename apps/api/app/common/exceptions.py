@@ -17,3 +17,14 @@ class PermissionDeniedError(DomainError):
 
 class ConflictError(DomainError):
     """The action conflicts with the current state of the resource."""
+
+
+class PlanLimitError(DomainError):
+    """
+    The workspace's plan does not allow this.
+
+    Separate from PermissionDeniedError because the remedy differs:
+    a permission failure means ask someone else, a plan failure
+    means upgrade. They deserve different HTTP codes and different
+    copy in the interface.
+    """

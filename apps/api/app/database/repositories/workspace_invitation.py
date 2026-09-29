@@ -130,6 +130,21 @@ class WorkspaceInvitationRepository(
             .all()
         )
     
+    def get_live_pending_by_workspace(
+        self,
+        workspace_id: UUID,
+    ):
+        """Pending and not yet lapsed - these hold a seat."""
+        return (
+            self.db.query(self.model)
+            .filter(
+                self.model.workspace_id == workspace_id,
+                self.model.status == WorkspaceInvitationStatus.PENDING,
+                self.model.expires_at > datetime.now(UTC),
+            )
+            .all()
+        )
+
     def get_by_workspace(
         self,
         workspace_id: UUID,

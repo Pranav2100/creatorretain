@@ -7,6 +7,7 @@ from app.api.creator_profile import (
     router as creator_profile_router,
 )
 from app.api.health import router as health_router
+from app.api.workspace_plan import router as workspace_plan_router
 from app.api.workspace import router as workspace_router
 from app.api.workspace_invitations import (
     router as workspace_invitation_router,
@@ -34,6 +35,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(workspace_router)
+app.include_router(workspace_plan_router)
 app.include_router(creator_profile_router)
 app.include_router(categories_router)
 app.include_router(workspace_member_router)

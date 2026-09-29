@@ -4,6 +4,7 @@ from app.common.exceptions import (
     ConflictError,
     NotFoundError,
     PermissionDeniedError,
+    PlanLimitError,
 )
 
 
@@ -19,6 +20,11 @@ def http_error(error: ValueError) -> HTTPException:
 
     elif isinstance(error, PermissionDeniedError):
         code = status.HTTP_403_FORBIDDEN
+
+    elif isinstance(error, PlanLimitError):
+        # 402 rather than 403: the block is the plan, not the person,
+        # so the interface should offer an upgrade rather than say no.
+        code = status.HTTP_402_PAYMENT_REQUIRED
 
     elif isinstance(error, ConflictError):
         code = status.HTTP_409_CONFLICT

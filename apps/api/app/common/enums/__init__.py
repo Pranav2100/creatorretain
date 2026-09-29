@@ -18,6 +18,7 @@ from app.common.enums.workspace_invitation_status import (
 from app.common.enums.workspace_member_status import (
     WorkspaceMemberStatus,
 )
+from app.common.enums.workspace_plan import WorkspacePlan
 from app.common.enums.workspace_role import WorkspaceRole
 from app.common.enums.workspace_status import WorkspaceStatus
 from app.common.enums.workspace_type import WorkspaceType
@@ -33,6 +34,7 @@ __all__ = [
     "VerificationStatus",
     "WorkspaceInvitationStatus",
     "WorkspaceMemberStatus",
+    "WorkspacePlan",
     "WorkspaceRole",
     "WorkspaceStatus",
     "WorkspaceType",

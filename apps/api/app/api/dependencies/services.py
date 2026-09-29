@@ -19,6 +19,7 @@ from app.services.workspace_invitation import (
     WorkspaceInvitationService,
 )
 from app.services.creator_profile import CreatorProfileService
+from app.services.workspace_plan import WorkspacePlanService
 from app.services.workspace_member import WorkspaceMemberService
 
 
@@ -58,5 +59,16 @@ def get_creator_profile_service(
 ) -> CreatorProfileService:
     return CreatorProfileService(
         repository=CreatorProfileRepository(db),
+        member_service=get_workspace_member_service(db),
+    )
+
+
+def get_workspace_plan_service(
+    db: Session = Depends(get_db),
+) -> WorkspacePlanService:
+    return WorkspacePlanService(
+        workspace_repository=WorkspaceRepository(db),
+        member_repository=WorkspaceMemberRepository(db),
+        invitation_repository=WorkspaceInvitationRepository(db),
         member_service=get_workspace_member_service(db),
     )

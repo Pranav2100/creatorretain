@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     LOG_LEVEL: str = "INFO"
 
+    # Lets an owner move their own workspace between plans. The
+    # stand-in for billing: switch off once a payment provider owns
+    # the plan column.
+    ALLOW_SELF_SERVE_PLAN_CHANGE: bool = True
+
     # ------------------------------------------------------------------
     # Database
     # ------------------------------------------------------------------

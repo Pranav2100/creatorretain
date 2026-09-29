@@ -1,14 +1,24 @@
 from dataclasses import dataclass
 from uuid import UUID
 
+from app.common.entitlements import (
+    Capability,
+    PlanLimits,
+    capabilities_for,
+    has_capability,
+    limits_for,
+    upgrade_message,
+)
 from app.common.enums import (
     WorkspaceMemberStatus,
+    WorkspacePlan,
     WorkspaceRole,
 )
 from app.common.exceptions import (
     ConflictError,
     NotFoundError,
     PermissionDeniedError,
+    PlanLimitError,
 )
 from app.common.permissions import (
     WorkspacePermission,
@@ -35,6 +45,10 @@ class WorkspaceContext:
 
     rather than looking the workspace up by owner, so Admins and
     Members resolve to the same workspace as the Owner.
+
+    Carries the workspace's plan too, so a service can ask both
+    questions from one object: may this person do it (role), and
+    may this workspace do it at all (plan).
     """
 
     workspace: Workspace
@@ -45,11 +59,77 @@ class WorkspaceContext:
     def workspace_id(self) -> UUID:
         return self.workspace.id
 
-    def require(self, permission: WorkspacePermission) -> None:
+    @property
+    def plan(self) -> WorkspacePlan:
+        return self.workspace.effective_plan
+
+    @property
+    def capabilities(self) -> frozenset[Capability]:
+        return capabilities_for(
+            self.workspace.workspace_type,
+            self.plan,
+        )
+
+    @property
+    def limits(self) -> PlanLimits:
+        return limits_for(
+            self.workspace.workspace_type,
+            self.plan,
+        )
+
+    def require(
+        self,
+        permission: WorkspacePermission,
+        message: str | None = None,
+    ) -> None:
         if not has_permission(self.role, permission):
             raise PermissionDeniedError(
-                "You don't have permission to perform this action."
+                message
+                or "You don't have permission to perform this action."
             )
+
+    def can(self, capability: Capability) -> bool:
+        return has_capability(
+            self.workspace.workspace_type,
+            self.plan,
+            capability,
+        )
+
+    def require_capability(self, capability: Capability) -> None:
+        """
+        Plan gate. Raises with the tier that would unlock it, so the
+        caller can say what to do rather than only what went wrong.
+        """
+        if not self.can(capability):
+            raise PlanLimitError(upgrade_message(capability))
+
+    def require_within_limit(
+        self,
+        limit_name: str,
+        current: int,
+        noun: str,
+    ) -> None:
+        """
+        Numeric gate. `current` is what already exists; this refuses
+        when adding one more would pass the ceiling.
+        """
+        ceiling = getattr(self.limits, limit_name, None)
+
+        if ceiling is None:
+            return
+
+        if current < ceiling:
+            return
+
+        if ceiling == 0:
+            raise PlanLimitError(
+                f"Your plan does not include {noun}. Upgrade to add them."
+            )
+
+        raise PlanLimitError(
+            f"Your plan allows {ceiling} {noun}. "
+            "Upgrade to add more."
+        )
 
 
 class WorkspaceMemberService:

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.common.enums import (
     VerificationStatus,
+    WorkspacePlan,
     WorkspaceStatus,
     WorkspaceType,
 )
@@ -58,6 +59,21 @@ class Workspace(Base, TimestampMixin):
         nullable=False,
     )
 
+    plan: Mapped[WorkspacePlan] = mapped_column(
+        Enum(WorkspacePlan, name="workspace_plan"),
+        default=WorkspacePlan.FREE,
+        nullable=False,
+        index=True,
+    )
+
+    # When the current plan lapses. Null means it does not - which is
+    # every workspace until billing exists. A paid plan past this date
+    # reads as Free without anything having to run.
+    plan_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
     verification_status: Mapped[VerificationStatus] = mapped_column(
         Enum(VerificationStatus, name="verification_status"),
         default=VerificationStatus.NOT_VERIFIED,
@@ -93,6 +109,26 @@ class Workspace(Base, TimestampMixin):
     owner: Mapped["User"] = relationship(
         back_populates="owned_workspaces",
     )
+
+    @property
+    def effective_plan(self) -> WorkspacePlan:
+        """
+        The plan actually in force. A lapsed paid plan reads as Free
+        the moment it expires, computed rather than swept, the same
+        way an expired invitation reads as expired.
+        """
+        if self.plan == WorkspacePlan.FREE:
+            return WorkspacePlan.FREE
+
+        if self.plan_expires_at is None:
+            return self.plan
+
+        if self.plan_expires_at > datetime.now(
+            self.plan_expires_at.tzinfo,
+        ):
+            return self.plan
+
+        return WorkspacePlan.FREE
 
     def __repr__(self) -> str:
         return f"<Workspace {self.slug}>"

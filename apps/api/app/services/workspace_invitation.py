@@ -13,6 +13,7 @@ from app.common.exceptions import (
     NotFoundError,
     PermissionDeniedError,
 )
+from app.common.entitlements import Capability
 from app.common.permissions import WorkspacePermission
 from app.core.settings import settings
 from app.database.models.workspace_invitation import WorkspaceInvitation
@@ -82,6 +83,19 @@ class WorkspaceInvitationService:
             raise PermissionDeniedError(
                 "Creator workspaces cannot invite members."
             )
+
+        # Seats are a plan limit. Pending invitations count, so a
+        # workspace cannot queue its way past the ceiling.
+        context.require_within_limit(
+            "team_members",
+            self.member_repository.count_active(context.workspace_id)
+            + len(
+                self.invitation_repository.get_live_pending_by_workspace(
+                    context.workspace_id,
+                )
+            ),
+            "team members",
+        )
 
         existing_invitation = (
             self.invitation_repository.get_pending_by_workspace_and_email(
