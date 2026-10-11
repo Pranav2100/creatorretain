@@ -8,6 +8,7 @@ from app.api.creator_profile import (
 )
 from app.api.discovery import router as discovery_router
 from app.api.health import router as health_router
+from app.api.retainers import router as retainer_router
 from app.api.workspace_plan import router as workspace_plan_router
 from app.api.workspace import router as workspace_router
 from app.api.workspace_invitations import (
@@ -39,6 +40,7 @@ app.include_router(workspace_router)
 app.include_router(workspace_plan_router)
 app.include_router(creator_profile_router)
 app.include_router(discovery_router)
+app.include_router(retainer_router)
 app.include_router(categories_router)
 app.include_router(workspace_member_router)
 app.include_router(workspace_invitation_router)

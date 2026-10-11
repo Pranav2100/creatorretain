@@ -17,6 +17,14 @@ from app.database.models.creator_rate import CreatorRate
 from app.database.models.creator_social_account import (
     CreatorSocialAccount,
 )
+from app.database.models.retainer import Retainer
+from app.database.models.retainer_deliverable import (
+    RetainerDeliverable,
+)
+from app.database.models.retainer_deliverable_spec import (
+    RetainerDeliverableSpec,
+)
+from app.database.models.retainer_period import RetainerPeriod
 from app.database.models.user import User
 from app.database.models.workspace import Workspace
 from app.database.models.workspace_invitation import WorkspaceInvitation
@@ -30,6 +38,10 @@ __all__ = [
     "CreatorSocialAccount",
     "CreatorPortfolioItem",
     "CreatorRate",
+    "Retainer",
+    "RetainerDeliverable",
+    "RetainerDeliverableSpec",
+    "RetainerPeriod",
     "Workspace",
     "WorkspaceMember",
     "WorkspaceInvitation",

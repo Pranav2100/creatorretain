@@ -14,6 +14,13 @@ class WorkspacePermission(StrEnum):
     DELETE_WORKSPACE = "delete_workspace"
     LEAVE_WORKSPACE = "leave_workspace"
 
+    # Signing a retainer commits the workspace to paying money every
+    # month, so it sits with the Owner and Admins. Reading one does
+    # not - a Member running the account needs to know what was
+    # agreed and what is due.
+    VIEW_RETAINERS = "view_retainers"
+    MANAGE_RETAINERS = "manage_retainers"
+
 
 ROLE_PERMISSIONS: dict[WorkspaceRole, frozenset[WorkspacePermission]] = {
     WorkspaceRole.OWNER: frozenset(
@@ -26,6 +33,8 @@ ROLE_PERMISSIONS: dict[WorkspaceRole, frozenset[WorkspacePermission]] = {
             WorkspacePermission.TRANSFER_OWNERSHIP,
             WorkspacePermission.MANAGE_BILLING,
             WorkspacePermission.DELETE_WORKSPACE,
+            WorkspacePermission.VIEW_RETAINERS,
+            WorkspacePermission.MANAGE_RETAINERS,
         }
     ),
     WorkspaceRole.ADMIN: frozenset(
@@ -36,11 +45,14 @@ ROLE_PERMISSIONS: dict[WorkspaceRole, frozenset[WorkspacePermission]] = {
             WorkspacePermission.REMOVE_MEMBERS,
             WorkspacePermission.CHANGE_ROLES,
             WorkspacePermission.LEAVE_WORKSPACE,
+            WorkspacePermission.VIEW_RETAINERS,
+            WorkspacePermission.MANAGE_RETAINERS,
         }
     ),
     WorkspaceRole.MEMBER: frozenset(
         {
             WorkspacePermission.LEAVE_WORKSPACE,
+            WorkspacePermission.VIEW_RETAINERS,
         }
     ),
 }

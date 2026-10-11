@@ -10,6 +10,7 @@ from app.database.repositories.creator_profile import (
     CreatorProfileRepository,
 )
 from app.database.repositories.discovery import DiscoveryRepository
+from app.database.repositories.retainer import RetainerRepository
 from app.database.repositories.workspace_member import (
     WorkspaceMemberRepository,
 )
@@ -21,6 +22,7 @@ from app.services.workspace_invitation import (
 )
 from app.services.creator_profile import CreatorProfileService
 from app.services.discovery import DiscoveryService
+from app.services.retainer import RetainerService
 from app.services.workspace_plan import WorkspacePlanService
 from app.services.workspace_member import WorkspaceMemberService
 
@@ -81,5 +83,15 @@ def get_discovery_service(
 ) -> DiscoveryService:
     return DiscoveryService(
         repository=DiscoveryRepository(db),
+        member_service=get_workspace_member_service(db),
+    )
+
+
+def get_retainer_service(
+    db: Session = Depends(get_db),
+) -> RetainerService:
+    return RetainerService(
+        repository=RetainerRepository(db),
+        workspace_repository=WorkspaceRepository(db),
         member_service=get_workspace_member_service(db),
     )
