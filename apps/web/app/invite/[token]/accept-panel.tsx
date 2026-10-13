@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { storeToken } from "@/app/actions/session";
 import { acceptByToken, login, register } from "@/lib/api";
 
 type Props = {
@@ -62,8 +63,12 @@ export function AcceptPanel({
       const accessToken = await login(email, password);
       await acceptByToken(token, accessToken);
 
-      window.localStorage.setItem("access_token", accessToken);
-      router.push("/");
+      // The session lives in an httpOnly cookie rather than
+      // localStorage, so no script on the page can read it. Handing
+      // the token to the server to store is not an escalation: it is
+      // the same credential this browser just earned.
+      await storeToken(accessToken);
+      router.push("/creators");
     } catch (caught) {
       setError(
         caught instanceof Error
