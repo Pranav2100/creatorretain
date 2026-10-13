@@ -10,6 +10,7 @@ from app.common.enums import (
     DeliverableStatus,
     DeliverableType,
     RetainerStatus,
+    ReviewDecision,
     WorkspaceType,
 )
 from app.common.exceptions import (
@@ -596,11 +597,24 @@ class RetainerService:
                 "This deliverable was rejected and is closed."
             )
 
+        # A submission is counted when the creator answers something:
+        # the brief, or a request for changes. Sending a corrected
+        # link while the first one is still waiting to be reviewed
+        # is the same attempt, so a double click or a fixed typo
+        # does not inflate the number the brand reads as "they got
+        # it wrong twice".
+        counts_as_attempt = deliverable.status in (
+            DeliverableStatus.PENDING,
+            DeliverableStatus.REVISION_REQUESTED,
+        )
+
         deliverable.status = DeliverableStatus.SUBMITTED
         deliverable.submitted_url = url
         deliverable.submitted_note = note
         deliverable.submitted_at = self._now()
-        deliverable.submission_count += 1
+
+        if counts_as_attempt:
+            deliverable.submission_count += 1
 
         # A resubmission answers the previous review, so the old
         # note should not sit there looking current.
@@ -615,7 +629,7 @@ class RetainerService:
         current_user_id: UUID,
         deliverable_id: UUID,
         *,
-        decision: DeliverableStatus,
+        decision: ReviewDecision,
         note: str | None = None,
     ) -> RetainerDeliverable:
         context, deliverable, side = self._resolve_deliverable(
@@ -630,31 +644,17 @@ class RetainerService:
 
         context.require(WorkspacePermission.MANAGE_RETAINERS)
 
-        allowed = (
-            DeliverableStatus.APPROVED,
-            DeliverableStatus.REVISION_REQUESTED,
-            DeliverableStatus.REJECTED,
-        )
-
-        if decision not in allowed:
-            raise ConflictError(
-                "A review is approve, request revision or reject."
-            )
-
         if deliverable.status != DeliverableStatus.SUBMITTED:
             raise ConflictError(
                 "There is nothing submitted to review."
             )
 
-        if (
-            decision == DeliverableStatus.REVISION_REQUESTED
-            and not note
-        ):
+        if decision == ReviewDecision.REQUEST_REVISION and not note:
             raise ConflictError(
                 "Say what needs changing when asking for a revision."
             )
 
-        deliverable.status = decision
+        deliverable.status = decision.to_status()
         deliverable.review_note = note
         deliverable.reviewed_at = self._now()
         deliverable.reviewed_by_user_id = current_user_id

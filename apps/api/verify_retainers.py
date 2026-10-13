@@ -512,11 +512,37 @@ def main():
 
     r = client.get(f"/retainers/{retainer_id}", headers=nina)
     first_month = r.json()["periods"][0]
+
+    shape = [
+        (d["deliverable_type"], d["position"])
+        for d in first_month["deliverables"]
+    ]
+    assert shape == [
+        ("reel", 1),
+        ("reel", 2),
+        ("reel", 3),
+        ("reel", 4),
+        ("story", 1),
+        ("story", 2),
+    ], shape
+    note("deliverables come back grouped by type, in order")
+
     reel = next(
         d
         for d in first_month["deliverables"]
         if d["deliverable_type"] == "reel" and d["position"] == 1
     )
+
+    check(
+        "a url has to be a url",
+        client.post(
+            f"/retainers/deliverables/{reel['id']}/submit",
+            json={"url": "done"},
+            headers=nina,
+        ),
+        422,
+    )
+    note("the submitted link is validated, not just measured")
 
     check(
         "the brand cannot submit work",
@@ -545,11 +571,23 @@ def main():
     assert r.json()["status"] == "submitted", r.json()
     assert r.json()["submission_count"] == 1, r.json()
 
+    r = check(
+        "submitting again before review is the same attempt",
+        client.post(
+            f"/retainers/deliverables/{reel['id']}/submit",
+            json={"url": "https://example.com/reel-1-fixed-typo"},
+            headers=nina,
+        ),
+        200,
+    )
+    assert r.json()["submission_count"] == 1, r.json()
+    note("a double click does not read as a second attempt")
+
     check(
         "the creator cannot review their own work",
         client.post(
             f"/retainers/deliverables/{reel['id']}/review",
-            json={"decision": "approved"},
+            json={"decision": "approve"},
             headers=nina,
         ),
         403,
@@ -557,10 +595,21 @@ def main():
     )
 
     check(
+        "a status is not a review decision",
+        client.post(
+            f"/retainers/deliverables/{reel['id']}/review",
+            json={"decision": "pending"},
+            headers=brand,
+        ),
+        422,
+    )
+    note("the three valid decisions are the only ones offered")
+
+    check(
         "a revision must say what to change",
         client.post(
             f"/retainers/deliverables/{reel['id']}/review",
-            json={"decision": "revision_requested"},
+            json={"decision": "request_revision"},
             headers=brand,
         ),
         409,
@@ -572,7 +621,7 @@ def main():
         client.post(
             f"/retainers/deliverables/{reel['id']}/review",
             json={
-                "decision": "revision_requested",
+                "decision": "request_revision",
                 "note": "Cut the intro.",
             },
             headers=brand,
@@ -603,7 +652,7 @@ def main():
         "the brand approves",
         client.post(
             f"/retainers/deliverables/{reel['id']}/review",
-            json={"decision": "approved"},
+            json={"decision": "approve"},
             headers=brand,
         ),
         200,

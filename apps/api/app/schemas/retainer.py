@@ -2,12 +2,14 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
 
 from app.common.enums import (
     DeliverableStatus,
     DeliverableType,
     RetainerStatus,
+    ReviewDecision,
+    type_rank,
 )
 from app.database.models.retainer import Retainer
 from app.database.models.retainer_deliverable import (
@@ -57,12 +59,16 @@ class PauseRequest(BaseModel):
 
 
 class SubmitDeliverableRequest(BaseModel):
-    url: str = Field(min_length=3, max_length=500)
+    # A real link, not any string. The brand clicks this to see the
+    # work, so "done" in the url field helps nobody.
+    url: AnyHttpUrl = Field(max_length=500)
     note: str | None = None
 
 
 class ReviewDeliverableRequest(BaseModel):
-    decision: DeliverableStatus
+    # Three choices, not the whole status enum. The API used to
+    # advertise five and refuse two of them at runtime.
+    decision: ReviewDecision
     note: str | None = Field(default=None, max_length=1000)
 
 
@@ -126,7 +132,10 @@ class PeriodResponse(BaseModel):
             outstanding_count=period.outstanding_count,
             deliverables=[
                 DeliverableResponse.model_validate(item)
-                for item in period.deliverables
+                for item in sorted(
+                    period.deliverables,
+                    key=_deliverable_order,
+                )
             ],
         )
 
@@ -255,6 +264,16 @@ class RetainerListResponse(BaseModel):
 class PeriodListResponse(BaseModel):
     periods: list[PeriodResponse]
     total: int
+
+
+def _deliverable_order(item) -> tuple[int, int]:
+    """
+    Group a month's work by type, then by its number within that
+    type: all four reels, then both stories. Ordered here rather
+    than in SQL because ordering by an enum column depends on the
+    database - see DELIVERABLE_TYPE_ORDER.
+    """
+    return type_rank(item.deliverable_type), item.position
 
 
 def _party(workspace) -> RetainerParty:

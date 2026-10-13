@@ -339,7 +339,7 @@ def submit_deliverable(
         deliverable = service.submit_deliverable(
             current_user.id,
             deliverable_id,
-            url=payload.url,
+            url=str(payload.url),
             note=payload.note,
         )
 
