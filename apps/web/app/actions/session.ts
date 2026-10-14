@@ -6,7 +6,11 @@ import { redirect } from "next/navigation";
 import { ApiError, login } from "@/lib/api";
 import type { FormState } from "@/lib/forms";
 import { SESSION_COOKIE, SESSION_MAX_AGE } from "@/lib/session";
-import { getWorkspaceContext, landingFor } from "@/lib/workspace";
+import {
+  getWorkspaceContext,
+  landingFor,
+  NO_WORKSPACE,
+} from "@/lib/workspace";
 
 /**
  * Exchanges a password for a session cookie.
@@ -52,7 +56,13 @@ export async function signIn(
 
   const context = await getWorkspaceContext(token);
 
-  redirect(context ? landingFor(context.plan) : "/retainers");
+  // Signed in with nothing set up - someone who registered but
+  // never finished. Setup is the only page that works for them.
+  if (context === NO_WORKSPACE || !context) {
+    redirect("/setup");
+  }
+
+  redirect(landingFor(context.plan));
 }
 
 export async function signOut(): Promise<void> {

@@ -49,6 +49,7 @@ def _serialise(
         headline=profile.headline,
         bio=profile.bio,
         city=profile.city,
+        state=profile.state,
         country=profile.country,
         languages=profile.languages or [],
         skills=profile.skills or [],

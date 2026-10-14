@@ -1,15 +1,11 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { Header } from "@/components/header";
 import { getCreator, type Rate } from "@/lib/discovery";
 import { money, place, reach } from "@/lib/format";
-import { requireToken } from "@/lib/session";
-import { getWorkspaceContext } from "@/lib/workspace";
-
-const LANGUAGE = new Intl.DisplayNames(["en"], {
-  type: "language",
-});
+import { countryName, languageName } from "@/lib/places";
+import { requireWorkspace } from "@/lib/session";
 
 const DELIVERABLE: Record<string, string> = {
   reel: "Reel",
@@ -26,12 +22,9 @@ export default async function CreatorPage(
 ) {
   const { id } = await props.params;
 
-  const token = await requireToken(`/creators/${id}`);
-  const context = await getWorkspaceContext(token);
-
-  if (!context) {
-    redirect(`/login?next=/creators/${id}`);
-  }
+  const { token, workspace, plan } = await requireWorkspace(
+    `/creators/${id}`,
+  );
 
   const creator = await getCreator(token, id);
 
@@ -40,13 +33,17 @@ export default async function CreatorPage(
   }
 
   const beat = creator.categories.map((c) => c.name).join(", ");
-  const where = place(creator.city, creator.country);
+  const where = place(
+    creator.city,
+    creator.state,
+    countryName(creator.country),
+  );
 
   return (
     <>
       <Header
-        workspace={context.workspace}
-        plan={context.plan}
+        workspace={workspace}
+        plan={plan}
         current="creators"
       />
 
@@ -165,15 +162,7 @@ export default async function CreatorPage(
               <div className="mt-8">
                 <h2 className="text-[13px] text-muted">Speaks</h2>
                 <p className="mt-1.5 text-[15px] text-ink">
-                  {creator.languages
-                    .map((code) => {
-                      try {
-                        return LANGUAGE.of(code) ?? code;
-                      } catch {
-                        return code;
-                      }
-                    })
-                    .join(", ")}
+                  {creator.languages.map(languageName).join(", ")}
                 </p>
               </div>
             )}
@@ -224,14 +213,12 @@ function RateCard({
 }) {
   return (
     <div>
-      <h2 className="text-[13px] text-muted">Rates</h2>
+      <h2 className="text-[13px] text-muted">Starting rate</h2>
 
       <p className="mt-1.5 tabular-nums text-[1.5rem] leading-tight text-ink">
         {money(retainer, currency)}
       </p>
-      <p className="text-[13px] text-muted">
-        a month, from
-      </p>
+      <p className="text-[13px] text-muted">a month</p>
 
       {rates.length > 0 && (
         <ul className="mt-5">

@@ -211,6 +211,93 @@ def main():
     ]
     note("completeness rises to 55, still draft, two fields missing")
 
+    assert profile["state"] is None, profile
+    note("state is not one of the fields a profile needs to publish")
+
+    print("\n--- state ---")
+    r = check(
+        "state saved alongside city and country",
+        client.put(
+            "/creator-profile",
+            json={"state": "Maharashtra"},
+            headers=priya,
+        ),
+        200,
+    )
+    assert r.json()["state"] == "Maharashtra", r.json()
+    assert r.json()["city"] == "Pune", r.json()
+    assert r.json()["completeness"] == 55, r.json()
+    note("an empty state never held the profile back, and a filled")
+    note("one does not push it forward either")
+
+    check(
+        "a state longer than the column is rejected",
+        client.put(
+            "/creator-profile",
+            json={"state": "x" * 101},
+            headers=priya,
+        ),
+        422,
+    )
+
+    print("\n--- languages ---")
+    r = check(
+        "a typed-in language is kept as typed",
+        client.put(
+            "/creator-profile",
+            json={"languages": ["en", "  Tulu  ", "mr"]},
+            headers=priya,
+        ),
+        200,
+    )
+    assert r.json()["languages"] == ["en", "Tulu", "mr"], r.json()
+    note("codes and names sit in the same list; whitespace trimmed")
+
+    r = check(
+        "the same language twice collapses to one",
+        client.put(
+            "/creator-profile",
+            json={"languages": ["en", "EN", "Tulu", "tulu", ""]},
+            headers=priya,
+        ),
+        200,
+    )
+    assert r.json()["languages"] == ["en", "Tulu"], r.json()
+    note("duplicates folded case-insensitively, blanks dropped")
+
+    check(
+        "a language name longer than 40 characters is rejected",
+        client.put(
+            "/creator-profile",
+            json={"languages": ["x" * 41]},
+            headers=priya,
+        ),
+        422,
+        "40 characters",
+    )
+
+    check(
+        "more than twelve languages is rejected",
+        client.put(
+            "/creator-profile",
+            json={"languages": [f"lang{n}" for n in range(13)]},
+            headers=priya,
+        ),
+        422,
+        "at most 12",
+    )
+
+    r = check(
+        "languages put back the way they were",
+        client.put(
+            "/creator-profile",
+            json={"languages": ["en", "hi", "mr"]},
+            headers=priya,
+        ),
+        200,
+    )
+    assert r.json()["languages"] == ["en", "hi", "mr"], r.json()
+
     print("\n--- social accounts ---")
     r = check(
         "instagram account added",

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { Header } from "@/components/header";
 import { money } from "@/lib/format";
@@ -11,8 +11,7 @@ import {
   type Period,
   type RetainerDetail,
 } from "@/lib/retainers";
-import { requireToken } from "@/lib/session";
-import { getWorkspaceContext } from "@/lib/workspace";
+import { requireWorkspace } from "@/lib/session";
 
 import { AnswerButton, ReviewForm, SubmitWorkForm } from "./forms";
 
@@ -33,12 +32,9 @@ export default async function RetainerPage(
 ) {
   const { id } = await props.params;
 
-  const token = await requireToken(`/retainers/${id}`);
-  const context = await getWorkspaceContext(token);
-
-  if (!context) {
-    redirect(`/login?next=/retainers/${id}`);
-  }
+  const { token, workspace, plan } = await requireWorkspace(
+    `/retainers/${id}`,
+  );
 
   const retainer = await getRetainer(token, id);
 
@@ -56,8 +52,8 @@ export default async function RetainerPage(
   return (
     <>
       <Header
-        workspace={context.workspace}
-        plan={context.plan}
+        workspace={workspace}
+        plan={plan}
         current="retainers"
       />
 

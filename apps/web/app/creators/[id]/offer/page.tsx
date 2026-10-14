@@ -1,10 +1,9 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { Header } from "@/components/header";
 import { getCreator } from "@/lib/discovery";
-import { requireToken } from "@/lib/session";
-import { getWorkspaceContext } from "@/lib/workspace";
+import { requireWorkspace } from "@/lib/session";
 
 import { OfferForm } from "./offer-form";
 
@@ -15,12 +14,9 @@ export default async function OfferPage(
 ) {
   const { id } = await props.params;
 
-  const token = await requireToken(`/creators/${id}/offer`);
-  const context = await getWorkspaceContext(token);
-
-  if (!context) {
-    redirect(`/login?next=/creators/${id}/offer`);
-  }
+  const { token, workspace, plan } = await requireWorkspace(
+    `/creators/${id}/offer`,
+  );
 
   const creator = await getCreator(token, id);
 
@@ -28,15 +24,13 @@ export default async function OfferPage(
     notFound();
   }
 
-  const allowed = context.plan.capabilities.includes(
-    "create_retainer",
-  );
+  const allowed = plan.capabilities.includes("create_retainer");
 
   return (
     <>
       <Header
-        workspace={context.workspace}
-        plan={context.plan}
+        workspace={workspace}
+        plan={plan}
         current="creators"
       />
 

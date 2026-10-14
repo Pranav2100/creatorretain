@@ -50,9 +50,18 @@ export function money(
   });
 }
 
+/**
+ * A location as one line, narrowest part first.
+ *
+ * State sits in the middle because that is where it belongs in an
+ * address, and an empty one is skipped rather than leaving a gap:
+ * most countries outside the list in lib/regions have nothing
+ * sensible to put there.
+ */
 export function place(
   city: string | null,
+  state: string | null,
   country: string | null,
 ): string {
-  return [city, country].filter(Boolean).join(", ");
+  return [city, state, country].filter(Boolean).join(", ");
 }

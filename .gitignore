@@ -33,3 +33,6 @@ Thumbs.db
 node_modules/
 .next/
 .turbo/
+# Local scratch
+*.db
+*.tsbuildinfo

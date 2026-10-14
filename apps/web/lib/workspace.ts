@@ -50,10 +50,16 @@ export type PlanState = {
  * because the plan is what decides which parts of the page are
  * usable rather than merely visible.
  */
-export async function getWorkspaceContext(token: string): Promise<{
+export const NO_WORKSPACE = "no-workspace" as const;
+
+export type WorkspaceContext = {
   workspace: WorkspaceSummary;
   plan: PlanState;
-} | null> {
+};
+
+export async function getWorkspaceContext(
+  token: string,
+): Promise<WorkspaceContext | typeof NO_WORKSPACE | null> {
   const headers = { Authorization: `Bearer ${token}` };
 
   const [workspaceResponse, planResponse] = await Promise.all([
@@ -72,6 +78,13 @@ export async function getWorkspaceContext(token: string): Promise<{
     planResponse.status === 401
   ) {
     return null;
+  }
+
+  // Signed in, but nothing set up yet. Told apart from an expired
+  // token because the remedy is completely different: one needs a
+  // workspace, the other needs a password.
+  if (workspaceResponse.status === 404) {
+    return NO_WORKSPACE;
   }
 
   if (!workspaceResponse.ok || !planResponse.ok) {

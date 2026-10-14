@@ -18,11 +18,15 @@ export function Header({
 }: {
   workspace: WorkspaceSummary;
   plan: PlanState;
-  current?: "creators" | "retainers";
+  current?: "creators" | "retainers" | "profile";
 }) {
   // A creator workspace cannot browse discovery, so offering them
   // the link would only lead to a refusal.
   const canBrowse = plan.capabilities.includes("browse_creators");
+
+  // Only creator workspaces have a profile to edit, so only they
+  // get the link.
+  const isCreator = workspace.workspace_type === "creator";
 
   return (
     <header className="border-b border-line">
@@ -44,6 +48,11 @@ export function Header({
             <Tab href="/retainers" active={current === "retainers"}>
               Retainers
             </Tab>
+            {isCreator && (
+              <Tab href="/profile" active={current === "profile"}>
+                Profile
+              </Tab>
+            )}
           </nav>
         </div>
 

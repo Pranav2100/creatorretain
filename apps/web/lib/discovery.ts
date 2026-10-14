@@ -16,7 +16,12 @@ export type VerificationStatus =
   | "verified"
   | "rejected";
 
+// What a creator card carries: enough to label, no id.
 export type Category = { slug: string; name: string };
+
+// The full list a creator picks from. The id is what the API
+// wants back when setting them.
+export type ContentCategory = Category & { id: string };
 
 export type Platform = {
   platform: SocialPlatform;
@@ -33,6 +38,7 @@ export type CreatorCard = {
   display_name: string;
   headline: string | null;
   city: string | null;
+  state: string | null;
   country: string | null;
   availability: Availability;
   verification_status: VerificationStatus;
@@ -157,7 +163,7 @@ export async function getCreator(
   return body(response);
 }
 
-export async function listCategories(): Promise<Category[]> {
+export async function listCategories(): Promise<ContentCategory[]> {
   const response = await fetch(`${API_URL}/content-categories`, {
     // Categories are a fixed list seeded by a migration, so this is
     // the one thing on the page worth caching.

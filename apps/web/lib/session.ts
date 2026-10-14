@@ -36,3 +36,30 @@ export async function requireToken(returnTo?: string): Promise<string> {
 
   return token;
 }
+
+/**
+ * The three things every signed-in page needs, or a redirect to
+ * wherever the person actually belongs.
+ *
+ * Expired token and missing workspace look the same from a page's
+ * point of view - neither can render - but the way out differs, so
+ * they are separated here once rather than in every page.
+ */
+export async function requireWorkspace(returnTo: string) {
+  const { getWorkspaceContext, NO_WORKSPACE } = await import(
+    "@/lib/workspace"
+  );
+
+  const token = await requireToken(returnTo);
+  const context = await getWorkspaceContext(token);
+
+  if (context === NO_WORKSPACE) {
+    redirect("/setup");
+  }
+
+  if (!context) {
+    redirect(`/login?next=${encodeURIComponent(returnTo)}`);
+  }
+
+  return { token, ...context };
+}

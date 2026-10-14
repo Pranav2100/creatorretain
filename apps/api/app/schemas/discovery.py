@@ -40,6 +40,7 @@ class CreatorCard(BaseModel):
     display_name: str
     headline: str | None
     city: str | None
+    state: str | None
     country: str | None
     availability: CreatorAvailability
     verification_status: CreatorVerificationStatus
@@ -76,6 +77,7 @@ class CreatorCard(BaseModel):
             display_name=profile.workspace.display_name,
             headline=profile.headline,
             city=profile.city,
+            state=profile.state,
             country=profile.country,
             availability=profile.availability,
             verification_status=profile.verification_status,

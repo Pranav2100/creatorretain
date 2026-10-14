@@ -76,6 +76,15 @@ class CreatorProfile(Base, TimestampMixin):
         index=True,
     )
 
+    # The region inside the country - "Maharashtra", "Scotland".
+    # Not required to publish: plenty of countries have nothing
+    # sensible to put here, so location stays city + country.
+    state: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+    )
+
     country: Mapped[str | None] = mapped_column(
         String(2),
         nullable=True,

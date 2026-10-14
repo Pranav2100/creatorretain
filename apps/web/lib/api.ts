@@ -85,7 +85,31 @@ export async function register(input: {
     body: JSON.stringify(input),
   });
 
-  await parse(response);
+  const parsed = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    // A 422 from FastAPI is a list of field errors, not a
+    // sentence. The first one is usually the real problem - a
+    // password that is too short, say - and is far more use than
+    // a generic failure message.
+    const detail = parsed?.detail;
+
+    if (typeof detail === "string") {
+      throw new ApiError(response.status, detail);
+    }
+
+    if (Array.isArray(detail) && detail[0]?.msg) {
+      throw new ApiError(
+        response.status,
+        String(detail[0].msg).replace(/^Value error, /, ""),
+      );
+    }
+
+    throw new ApiError(
+      response.status,
+      "Could not create the account. Try again.",
+    );
+  }
 }
 
 export async function acceptByToken(

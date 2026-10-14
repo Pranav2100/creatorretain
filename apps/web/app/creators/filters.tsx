@@ -3,10 +3,10 @@
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 
-import type { Category } from "@/lib/discovery";
+import type { ContentCategory } from "@/lib/discovery";
 
 type Props = {
-  categories: Category[];
+  categories: ContentCategory[];
   current: Record<string, string>;
   advanced: boolean;
 };

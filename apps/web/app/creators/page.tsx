@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { Header } from "@/components/header";
 import { Filters } from "@/app/creators/filters";
@@ -10,8 +9,7 @@ import {
   type CreatorCard,
 } from "@/lib/discovery";
 import { money, place, reach } from "@/lib/format";
-import { requireToken } from "@/lib/session";
-import { getWorkspaceContext } from "@/lib/workspace";
+import { requireWorkspace } from "@/lib/session";
 
 export const metadata = { title: "Creators · CreatorRetain" };
 
@@ -51,16 +49,10 @@ function readFilters(
 export default async function CreatorsPage(
   props: PageProps<"/creators">,
 ) {
-  const token = await requireToken("/creators");
-  const context = await getWorkspaceContext(token);
+  const { token, workspace, plan } = await requireWorkspace(
+    "/creators",
+  );
 
-  if (!context) {
-    // The token outlived its 30 minutes. Sending them to sign in
-    // beats showing a page of errors they cannot do anything about.
-    redirect("/login?next=/creators");
-  }
-
-  const { workspace, plan } = context;
   const params = await props.searchParams;
   const current = readFilters(params);
 
@@ -108,7 +100,7 @@ export default async function CreatorsPage(
                   <span className="flex-1">Creator</span>
                   <span className="w-20 text-right sm:w-24">Reach</span>
                   <span className="w-24 text-right sm:w-28">
-                    From, a month
+                    Starts at
                   </span>
                 </div>
 
@@ -135,7 +127,10 @@ export default async function CreatorsPage(
 
 function Row({ creator }: { creator: CreatorCard }) {
   const beat = creator.categories.map((c) => c.name).join(", ");
-  const where = place(creator.city, creator.country);
+  // State is left out of the row on purpose: "Pune, Maharashtra, IN"
+  // pushes the beat off a narrow screen for no extra meaning. It is
+  // on the profile itself, where there is room.
+  const where = place(creator.city, null, creator.country);
 
   return (
     <li className="border-b border-line">

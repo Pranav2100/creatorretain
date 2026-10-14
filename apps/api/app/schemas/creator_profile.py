@@ -2,7 +2,12 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+)
 
 from app.common.enums import (
     CreatorAvailability,
@@ -13,10 +18,15 @@ from app.common.enums import (
 )
 
 
+MAX_LANGUAGES = 12
+MAX_LANGUAGE_LENGTH = 40
+
+
 class UpdateProfileRequest(BaseModel):
     headline: str | None = Field(default=None, max_length=120)
     bio: str | None = None
     city: str | None = Field(default=None, max_length=100)
+    state: str | None = Field(default=None, max_length=100)
     country: str | None = Field(
         default=None,
         min_length=2,
@@ -32,6 +42,55 @@ class UpdateProfileRequest(BaseModel):
         max_length=3,
     )
     availability: CreatorAvailability | None = None
+
+    @field_validator("languages")
+    @classmethod
+    def _tidy_languages(
+        cls,
+        value: list[str] | None,
+    ) -> list[str] | None:
+        """
+        Mostly ISO codes, but not always.
+
+        The list a creator picks from cannot name every language
+        they might work in, so this field also takes typed-in names.
+        That makes it free text, and free text arriving from a form
+        needs the usual tidying: collapse the whitespace, drop the
+        blanks, fold the duplicates, and bound both the entries and
+        the list so nothing silly reaches the database.
+        """
+        if value is None:
+            return None
+
+        seen: set[str] = set()
+        tidied: list[str] = []
+
+        for raw in value:
+            text = " ".join(str(raw).split())
+
+            if not text:
+                continue
+
+            if len(text) > MAX_LANGUAGE_LENGTH:
+                raise ValueError(
+                    "A language name cannot be longer than "
+                    f"{MAX_LANGUAGE_LENGTH} characters."
+                )
+
+            key = text.casefold()
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+            tidied.append(text)
+
+        if len(tidied) > MAX_LANGUAGES:
+            raise ValueError(
+                f"List at most {MAX_LANGUAGES} languages."
+            )
+
+        return tidied
 
 
 class SetCategoriesRequest(BaseModel):
@@ -159,6 +218,7 @@ class CreatorProfileResponse(BaseModel):
     headline: str | None
     bio: str | None
     city: str | None
+    state: str | None
     country: str | None
     languages: list[str]
     skills: list[str]

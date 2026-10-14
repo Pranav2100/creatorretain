@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { Header } from "@/components/header";
 import { money } from "@/lib/format";
@@ -8,8 +7,7 @@ import {
   STATUS_LABEL,
   type RetainerSummary,
 } from "@/lib/retainers";
-import { requireToken } from "@/lib/session";
-import { getWorkspaceContext } from "@/lib/workspace";
+import { requireWorkspace } from "@/lib/session";
 
 export const metadata = { title: "Retainers · CreatorRetain" };
 
@@ -26,12 +24,9 @@ const ORDER: Record<string, number> = {
 };
 
 export default async function RetainersPage() {
-  const token = await requireToken("/retainers");
-  const context = await getWorkspaceContext(token);
-
-  if (!context) {
-    redirect("/login?next=/retainers");
-  }
+  const { token, workspace, plan } = await requireWorkspace(
+    "/retainers",
+  );
 
   const { retainers } = await listRetainers(token);
 
@@ -44,8 +39,8 @@ export default async function RetainersPage() {
   return (
     <>
       <Header
-        workspace={context.workspace}
-        plan={context.plan}
+        workspace={workspace}
+        plan={plan}
         current="retainers"
       />
 
@@ -57,12 +52,12 @@ export default async function RetainersPage() {
         {sorted.length === 0 ? (
           <div className="mt-8 max-w-[46ch]">
             <p className="text-[16px] leading-relaxed text-muted">
-              {context.workspace.workspace_type === "creator"
+              {workspace.workspace_type === "creator"
                 ? "No one has offered you a retainer yet. Offers arrive here."
                 : "You have not put anyone on retainer yet."}
             </p>
 
-            {context.workspace.workspace_type !== "creator" && (
+            {workspace.workspace_type !== "creator" && (
               <Link
                 href="/creators"
                 className="mt-4 inline-block text-[15px] text-pine underline underline-offset-4"
