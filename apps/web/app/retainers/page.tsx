@@ -100,8 +100,16 @@ function Row({ retainer }: { retainer: RetainerSummary }) {
             {retainer.title}
           </p>
 
+          {/* The work count lives here rather than under the price,
+              where "11 a month" sat directly below "₹25,000" and
+              read as though the money were the eleven. */}
           <p className="mt-1.5 text-[13px] text-muted">
             {STATUS_LABEL[retainer.status]}
+            {` · ${retainer.monthly_deliverable_count} ${
+              retainer.monthly_deliverable_count === 1
+                ? "piece"
+                : "pieces"
+            }`}
             {retainer.status === "active" &&
               ` · ${retainer.periods_so_far} ${
                 retainer.periods_so_far === 1 ? "month" : "months"
@@ -109,12 +117,12 @@ function Row({ retainer }: { retainer: RetainerSummary }) {
           </p>
         </div>
 
-        <div className="w-28 shrink-0 text-right tabular-nums">
-          <span className="text-[15px] text-ink">
+        <div className="w-28 shrink-0 text-right">
+          <span className="text-[15px] tabular-nums text-ink">
             {money(retainer.monthly_amount, retainer.currency)}
           </span>
           <span className="mt-1 block text-[12px] text-muted">
-            {retainer.monthly_deliverable_count} a month
+            a month
           </span>
         </div>
       </Link>

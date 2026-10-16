@@ -1,7 +1,10 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auth import router as auth_router
+from app.api.brands import router as brand_router
 from app.api.creator_profile import (
     categories_router,
     router as creator_profile_router,
@@ -39,7 +42,23 @@ app.include_router(auth_router)
 app.include_router(workspace_router)
 app.include_router(workspace_plan_router)
 app.include_router(creator_profile_router)
+# Only when files live on this machine. With a real bucket the
+# browser loads them from the CDN and this route never exists, so
+# nothing in production is quietly serving a directory.
+if settings.STORAGE_BACKEND.lower() == "local":
+    from fastapi.staticfiles import StaticFiles
+
+    media_root = Path(settings.LOCAL_MEDIA_ROOT)
+    media_root.mkdir(parents=True, exist_ok=True)
+
+    app.mount(
+        "/media",
+        StaticFiles(directory=media_root),
+        name="media",
+    )
+
 app.include_router(discovery_router)
+app.include_router(brand_router)
 app.include_router(retainer_router)
 app.include_router(categories_router)
 app.include_router(workspace_member_router)

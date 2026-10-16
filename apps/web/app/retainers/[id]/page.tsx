@@ -70,8 +70,21 @@ export default async function RetainerPage(
             {mine === "brand" ? "You hired" : "Hired by"}
           </p>
 
+          {/* The creator's side links out to whoever is hiring
+              them. This is the screen where "who are these people?"
+              actually gets asked - a pending offer is sitting right
+              below it - so the answer belongs one click away. */}
           <h1 className="mt-1 font-display text-[2.6rem] leading-[1.05] tracking-tight text-ink">
-            {other.display_name}
+            {mine === "creator" ? (
+              <Link
+                href={`/brands/${other.slug}`}
+                className="underline decoration-line underline-offset-[8px] hover:decoration-ink"
+              >
+                {other.display_name}
+              </Link>
+            ) : (
+              other.display_name
+            )}
           </h1>
 
           <p className="mt-3 text-[16px] text-muted">

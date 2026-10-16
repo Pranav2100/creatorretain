@@ -12,6 +12,7 @@ from app.common.enums import (
     WorkspaceInvitationStatus,
     WorkspaceRole,
 )
+from app.common.utils.clock import is_past
 from app.database.mixins.timestamps import TimestampMixin
 from app.database.models.base import Base
 
@@ -100,7 +101,16 @@ class WorkspaceInvitation(Base, TimestampMixin):
 
     @property
     def is_expired(self) -> bool:
-        return self.expires_at < datetime.now(UTC)
+        """
+        Both sides are forced to UTC before being compared.
+
+        The column is timezone-aware and PostgreSQL hands it back
+        that way, but SQLite drops the offset on read, and an
+        aware-versus-naive comparison does not return False - it
+        raises. The value is stored as UTC either way, so the fix
+        is to say so rather than to trust the driver.
+        """
+        return is_past(self.expires_at)
 
     @property
     def effective_status(self) -> WorkspaceInvitationStatus:

@@ -9,6 +9,11 @@ dependencies = [
     "argon2-cffi>=25.1.0",
     "email-validator>=2.3.0",
     "fastapi>=0.138.2",
+    # Both come in with FastAPI's own extras today, but uploads
+    # and the Supabase Storage calls use them directly, so they
+    # are named rather than relied on by accident.
+    "httpx>=0.28.1",
+    "python-multipart>=0.0.20",
     "psycopg[binary]>=3.3.4",
     "pydantic-settings>=2.14.2",
     "python-jose[cryptography]>=3.5.0",

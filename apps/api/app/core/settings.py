@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------
     APP_URL: str = "http://localhost:3000"
 
+    # Where this API answers. Used to build URLs for files it
+    # serves itself, so it only matters while storage is local.
+    API_URL: str = "http://127.0.0.1:8000"
+
     # Browser origins allowed to call the API, comma separated
     CORS_ORIGINS: str = (
         "http://localhost:3000,http://127.0.0.1:3000"
@@ -40,6 +44,25 @@ class Settings(BaseSettings):
             for origin in self.CORS_ORIGINS.split(",")
             if origin.strip()
         ]
+
+    # ------------------------------------------------------------------
+    # File storage
+    # ------------------------------------------------------------------
+    # local    - this machine's own disk, for development
+    # supabase - a Supabase Storage bucket
+    STORAGE_BACKEND: str = "local"
+
+    LOCAL_MEDIA_ROOT: str = "var/media"
+
+    # Project URL, e.g. https://abcdefgh.supabase.co
+    SUPABASE_URL: str | None = None
+
+    # The service role key, not the anon key. It bypasses row level
+    # security, so it stays on the server and never reaches a
+    # browser.
+    SUPABASE_SECRET_KEY: str | None = None
+    
+    SUPABASE_STORAGE_BUCKET: str = "public-media"
 
     # ------------------------------------------------------------------
     # Email

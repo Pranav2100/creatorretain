@@ -96,7 +96,22 @@ class Workspace(Base, TimestampMixin):
         nullable=True,
     )
 
+    # Where the file sits in whichever store holds it. Kept apart
+    # from the URL because a public CDN address is not a path you
+    # can delete, and replacing a logo has to remove the old one.
+    logo_storage_key: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
     banner_url: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
+    # The cheapest thing a real company has and a throwaway account
+    # does not. Shown on the public page, never required.
+    website_url: Mapped[str | None] = mapped_column(
         String(500),
         nullable=True,
     )

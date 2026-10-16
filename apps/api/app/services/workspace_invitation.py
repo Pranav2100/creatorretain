@@ -517,7 +517,9 @@ class WorkspaceInvitationService:
         if invitation.status != WorkspaceInvitationStatus.PENDING:
             raise ConflictError("Invitation is no longer pending.")
 
-        if invitation.expires_at < datetime.now(UTC):
+        # Asks the model rather than comparing here, so expiry is
+        # decided in one place and gets the same UTC normalising.
+        if invitation.is_expired:
             invitation.status = WorkspaceInvitationStatus.EXPIRED
             self.invitation_repository.save(invitation)
 

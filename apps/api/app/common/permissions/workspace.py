@@ -4,6 +4,10 @@ from app.common.enums import WorkspaceRole
 
 
 class WorkspacePermission(StrEnum):
+    # The name, bio and logo are what a creator reads before
+    # accepting an offer, so rewriting them is not a Member's to do.
+    EDIT_WORKSPACE = "edit_workspace"
+
     VIEW_MEMBERS = "view_members"
     INVITE_MEMBERS = "invite_members"
     MANAGE_INVITATIONS = "manage_invitations"
@@ -25,6 +29,7 @@ class WorkspacePermission(StrEnum):
 ROLE_PERMISSIONS: dict[WorkspaceRole, frozenset[WorkspacePermission]] = {
     WorkspaceRole.OWNER: frozenset(
         {
+            WorkspacePermission.EDIT_WORKSPACE,
             WorkspacePermission.VIEW_MEMBERS,
             WorkspacePermission.INVITE_MEMBERS,
             WorkspacePermission.MANAGE_INVITATIONS,
@@ -39,6 +44,7 @@ ROLE_PERMISSIONS: dict[WorkspaceRole, frozenset[WorkspacePermission]] = {
     ),
     WorkspaceRole.ADMIN: frozenset(
         {
+            WorkspacePermission.EDIT_WORKSPACE,
             WorkspacePermission.VIEW_MEMBERS,
             WorkspacePermission.INVITE_MEMBERS,
             WorkspacePermission.MANAGE_INVITATIONS,

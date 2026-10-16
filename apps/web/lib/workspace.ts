@@ -23,12 +23,26 @@ export type Capability =
   | "verified_badge"
   | "represent_creators";
 
+export type WorkspaceRole = "owner" | "admin" | "member";
+
 export type WorkspaceSummary = {
   id: string;
   display_name: string;
   slug: string;
   workspace_type: WorkspaceType;
+  your_role: WorkspaceRole;
+  verification_status: string;
+  legal_name: string | null;
+  bio: string | null;
+  logo_url: string | null;
+  banner_url: string | null;
+  website_url: string | null;
 };
+
+/** Owners and admins may rewrite the workspace; members may not. */
+export function canEdit(role: WorkspaceRole): boolean {
+  return role === "owner" || role === "admin";
+}
 
 export type PlanState = {
   plan: Plan;
