@@ -57,11 +57,11 @@ class Settings(BaseSettings):
     # Project URL, e.g. https://abcdefgh.supabase.co
     SUPABASE_URL: str | None = None
 
-    # The service role key, not the anon key. It bypasses row level
-    # security, so it stays on the server and never reaches a
-    # browser.
+    # The secret key, not the publishable one. It bypasses row
+    # level security, so it stays on the server and never reaches
+    # a browser.
     SUPABASE_SECRET_KEY: str | None = None
-    
+
     SUPABASE_STORAGE_BUCKET: str = "public-media"
 
     # ------------------------------------------------------------------

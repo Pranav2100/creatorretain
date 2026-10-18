@@ -7,6 +7,7 @@ from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
 from app.common.enums import (
     DeliverableStatus,
     DeliverableType,
+    RetainerRequest,
     RetainerStatus,
     ReviewDecision,
     type_rank,
@@ -55,6 +56,13 @@ class EndRetainerRequest(BaseModel):
 
 
 class PauseRequest(BaseModel):
+    reason: str | None = Field(default=None, max_length=300)
+
+
+class ChangeRequestBody(BaseModel):
+    """Asking the other side to pause or to resume."""
+
+    action: RetainerRequest
     reason: str | None = Field(default=None, max_length=300)
 
 
@@ -146,6 +154,22 @@ class RetainerParty(BaseModel):
     display_name: str
 
 
+class PendingChange(BaseModel):
+    """
+    A change one side has asked for and the other has not answered.
+
+    `yours` saves the reader working out whose it is: the same
+    request reads as "waiting on them" to one party and "waiting on
+    you" to the other, and only one of them gets buttons.
+    """
+
+    action: RetainerRequest
+    by_side: str
+    yours: bool
+    reason: str | None
+    asked_at: datetime
+
+
 class RetainerSummary(BaseModel):
     """What a list row shows. No periods: a list of ten retainers
     should not drag every month of every one of them along."""
@@ -162,6 +186,12 @@ class RetainerSummary(BaseModel):
     your_side: str
     monthly_deliverable_count: int
     periods_so_far: int
+
+    # Enough for a list row to say something is up without
+    # carrying the whole request along.
+    under_notice: bool
+    awaiting_you: bool
+
     created_at: datetime
 
     @classmethod
@@ -169,26 +199,36 @@ class RetainerSummary(BaseModel):
         cls,
         retainer: Retainer,
         viewer_workspace_id: UUID,
+        today: date,
     ) -> "RetainerSummary":
+        side = (
+            "brand"
+            if viewer_workspace_id == retainer.brand_workspace_id
+            else "creator"
+        )
+
         return cls(
             id=retainer.id,
             title=retainer.title,
-            status=retainer.status,
+            # Derived, so one whose notice ran out last week reads
+            # as ended without anything having had to run.
+            status=retainer.state(today),
             monthly_amount=retainer.monthly_amount,
             currency=retainer.currency,
             start_date=retainer.start_date,
             end_date=retainer.end_date,
             brand=_party(retainer.brand_workspace),
             creator=_party(retainer.creator_workspace),
-            your_side=(
-                "brand"
-                if viewer_workspace_id == retainer.brand_workspace_id
-                else "creator"
-            ),
+            your_side=side,
             monthly_deliverable_count=(
                 retainer.monthly_deliverable_count
             ),
             periods_so_far=len(retainer.periods),
+            under_notice=retainer.is_under_notice(today),
+            awaiting_you=(
+                retainer.pending_action is not None
+                and retainer.pending_by_side != side
+            ),
             created_at=retainer.created_at,
         )
 
@@ -215,6 +255,12 @@ class RetainerDetail(BaseModel):
     paused_at: datetime | None
     ended_at: datetime | None
     ended_reason: str | None
+
+    pending: PendingChange | None
+    under_notice: bool
+    notice_given_at: datetime | None
+    notice_given_by_side: str | None
+
     created_at: datetime
 
     @classmethod
@@ -224,10 +270,21 @@ class RetainerDetail(BaseModel):
         side: str,
         today: date,
     ) -> "RetainerDetail":
+        pending = None
+
+        if retainer.pending_action is not None:
+            pending = PendingChange(
+                action=retainer.pending_action,
+                by_side=retainer.pending_by_side or "",
+                yours=retainer.pending_by_side == side,
+                reason=retainer.pending_reason,
+                asked_at=retainer.pending_at,
+            )
+
         return cls(
             id=retainer.id,
             title=retainer.title,
-            status=retainer.status,
+            status=retainer.state(today),
             monthly_amount=retainer.monthly_amount,
             currency=retainer.currency,
             start_date=retainer.start_date,
@@ -252,6 +309,10 @@ class RetainerDetail(BaseModel):
             paused_at=retainer.paused_at,
             ended_at=retainer.ended_at,
             ended_reason=retainer.ended_reason,
+            pending=pending,
+            under_notice=retainer.is_under_notice(today),
+            notice_given_at=retainer.notice_given_at,
+            notice_given_by_side=retainer.notice_given_by_side,
             created_at=retainer.created_at,
         )
 

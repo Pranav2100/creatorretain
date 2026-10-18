@@ -18,7 +18,11 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.common.enums import RetainerStatus
+from app.common.enums import (
+    TERMINAL_STATUSES,
+    RetainerRequest,
+    RetainerStatus,
+)
 from app.common.utils.billing_periods import anchor_day
 from app.database.mixins.timestamps import TimestampMixin
 from app.database.models.base import Base
@@ -162,6 +166,51 @@ class Retainer(Base, TimestampMixin):
         nullable=True,
     )
 
+    # ------------------------------------------------------------------
+    # A change one side has asked for, waiting on the other
+    # ------------------------------------------------------------------
+    # Only one at a time: there is no sensible reading of "pause
+    # this" and "resume this" both outstanding.
+    pending_action: Mapped[RetainerRequest | None] = mapped_column(
+        Enum(RetainerRequest, name="retainer_request"),
+        nullable=True,
+    )
+
+    # The side that asked, not the person. A request should still
+    # be answerable after whoever typed it leaves the workspace.
+    pending_by_side: Mapped[str | None] = mapped_column(
+        String(10),
+        nullable=True,
+    )
+
+    pending_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    pending_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    pending_reason: Mapped[str | None] = mapped_column(
+        String(300),
+        nullable=True,
+    )
+
+    # When notice was served, and by whom. Separate from ended_at,
+    # which is the day it actually finishes.
+    notice_given_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    notice_given_by_side: Mapped[str | None] = mapped_column(
+        String(10),
+        nullable=True,
+    )
+
     brand_workspace: Mapped["Workspace"] = relationship(
         "Workspace",
         foreign_keys=[brand_workspace_id],
@@ -194,6 +243,38 @@ class Retainer(Base, TimestampMixin):
     def anchor_day(self) -> int:
         """The day of the month each new period begins on."""
         return anchor_day(self.start_date)
+
+    def state(self, today: date) -> RetainerStatus:
+        """
+        What this retainer actually is on a given day.
+
+        Ending serves notice rather than stopping dead, so between
+        the day notice is given and the day it runs out the stored
+        status is still ACTIVE - the work continues and so does
+        the money. Past that date it reads as ENDED without
+        anything having had to run, the same way a lapsed plan
+        reads as Free.
+
+        Takes the day as an argument rather than asking the clock,
+        so a caller testing next February gets next February's
+        answer.
+        """
+        if self.status in TERMINAL_STATUSES:
+            return self.status
+
+        if self.end_date is not None and today > self.end_date:
+            return RetainerStatus.ENDED
+
+        return self.status
+
+    def is_under_notice(self, today: date) -> bool:
+        """Notice served, but not yet run out."""
+        return (
+            self.notice_given_at is not None
+            and self.end_date is not None
+            and today <= self.end_date
+            and self.status not in TERMINAL_STATUSES
+        )
 
     @property
     def is_running(self) -> bool:

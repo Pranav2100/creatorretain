@@ -675,18 +675,110 @@ def main():
     assert month_one["outstanding_count"] == 5, month_one
     note("approving one of six leaves five outstanding")
 
-    print("\n--- pausing ---")
+    print("\n--- asking to pause ---")
 
     r = check(
-        "either side can pause",
+        "asking does not pause anything on its own",
         client.post(
-            f"/retainers/{retainer_id}/pause",
-            json={"reason": "Campaign on hold."},
+            f"/retainers/{retainer_id}/requests",
+            json={"action": "pause", "reason": "Campaign on hold."},
             headers=nina,
         ),
         200,
     )
+    body = r.json()
+    assert body["status"] == "active", body
+    assert body["pending"]["action"] == "pause", body
+    assert body["pending"]["by_side"] == "creator", body
+    assert body["pending"]["yours"] is True, body
+    note("a request is a question, not a change")
+
+    r = client.get(f"/retainers/{retainer_id}", headers=brand)
+    assert r.json()["pending"]["yours"] is False, r.json()
+    note("the other side sees the same request as not theirs")
+
+    check(
+        "the asker cannot approve their own request",
+        client.post(
+            f"/retainers/{retainer_id}/requests/approve",
+            headers=nina,
+        ),
+        409,
+        "you asked for this",
+    )
+
+    check(
+        "a second request cannot queue behind the first",
+        client.post(
+            f"/retainers/{retainer_id}/requests",
+            json={"action": "pause"},
+            headers=brand,
+        ),
+        409,
+        "already a request",
+    )
+
+    check(
+        "the other side can say no",
+        client.post(
+            f"/retainers/{retainer_id}/requests/reject",
+            json={"reason": "Not yet."},
+            headers=brand,
+        ),
+        200,
+    )
+    r = client.get(f"/retainers/{retainer_id}", headers=nina)
+    assert r.json()["pending"] is None, r.json()
+    assert r.json()["status"] == "active", r.json()
+    note("rejecting clears the request and changes nothing else")
+
+    client.post(
+        f"/retainers/{retainer_id}/requests",
+        json={"action": "pause", "reason": "Campaign on hold."},
+        headers=nina,
+    )
+
+    check(
+        "only the asker can withdraw",
+        client.delete(
+            f"/retainers/{retainer_id}/requests",
+            headers=brand,
+        ),
+        403,
+        "not yours to withdraw",
+    )
+
+    check(
+        "the asker can take it back",
+        client.delete(
+            f"/retainers/{retainer_id}/requests",
+            headers=nina,
+        ),
+        200,
+    )
+    assert (
+        client.get(f"/retainers/{retainer_id}", headers=nina).json()[
+            "pending"
+        ]
+        is None
+    )
+
+    client.post(
+        f"/retainers/{retainer_id}/requests",
+        json={"action": "pause", "reason": "Campaign on hold."},
+        headers=nina,
+    )
+
+    r = check(
+        "the other side approving is what pauses it",
+        client.post(
+            f"/retainers/{retainer_id}/requests/approve",
+            headers=brand,
+        ),
+        200,
+    )
     assert r.json()["status"] == "paused", r.json()
+    assert r.json()["pending"] is None, r.json()
 
     travel_to(date(2027, 1, 20))
 
@@ -705,11 +797,17 @@ def main():
         "not active",
     )
 
+    client.post(
+        f"/retainers/{retainer_id}/requests",
+        json={"action": "resume"},
+        headers=brand,
+    )
+
     r = check(
-        "resuming restarts the clock",
+        "resuming restarts the clock once agreed",
         client.post(
-            f"/retainers/{retainer_id}/resume",
-            headers=brand,
+            f"/retainers/{retainer_id}/requests/approve",
+            headers=nina,
         ),
         200,
     )
@@ -731,8 +829,9 @@ def main():
     assert seqs == [1, 2, 3, 4], seqs
     note("numbering carries on across the gap")
 
-    print("\n--- ending ---")
+    print("\n--- ending serves notice ---")
 
+    # 20 Feb 2027 plus the 30 days agreed at signing.
     r = check(
         "either side can end it",
         client.post(
@@ -744,23 +843,80 @@ def main():
     )
 
     body = r.json()
-    assert body["status"] == "ended", body
+    assert body["status"] == "active", body
+    assert body["under_notice"] is True, body
+    assert body["end_date"] == "2027-03-22", body
+    assert body["notice_given_by_side"] == "brand", body
     assert body["ended_reason"] == "Budget cut.", body
-
-    travel_to(date(2027, 6, 1))
-
-    r = client.get(f"/retainers/{retainer_id}/periods", headers=brand)
-    assert r.json()["total"] == 4, r.json()
-    note("an ended retainer never grows another period")
+    note("notice given, and it keeps running until it runs out")
 
     check(
-        "it cannot be ended twice",
+        "nobody has to agree to let the other side leave",
+        client.post(
+            f"/retainers/{retainer_id}/requests",
+            json={"action": "pause"},
+            headers=nina,
+        ),
+        200,
+    )
+    client.delete(f"/retainers/{retainer_id}/requests", headers=nina)
+
+    check(
+        "notice cannot be served twice",
         client.post(
             f"/retainers/{retainer_id}/end",
             headers=brand,
         ),
         409,
+        "already been given",
     )
+
+    travel_to(date(2027, 3, 20))
+    r = client.get(f"/retainers/{retainer_id}", headers=brand)
+    assert r.json()["status"] == "active", r.json()
+    note("two days before the date it is still running")
+
+    travel_to(date(2027, 3, 23))
+    r = client.get(f"/retainers/{retainer_id}", headers=brand)
+    assert r.json()["status"] == "ended", r.json()
+    assert r.json()["under_notice"] is False, r.json()
+    note("the day after, it reads as ended with nothing having run")
+
+    travel_to(date(2027, 6, 1))
+
+    r = client.get(f"/retainers/{retainer_id}/periods", headers=brand)
+    total = r.json()["total"]
+    assert total == 5, r.json()
+    note("it earned the month inside its notice and then stopped")
+
+    print("\n--- ending with no notice ---")
+
+    travel_to(date(2027, 6, 1))
+    quick_headers, quick_id = build_creator(
+        "quick@test.com", "quickcreator", "Quick Creator"
+    )
+    quick = offer(
+        brand,
+        quick_id,
+        title="Short one",
+        notice_period_days=0,
+    ).json()
+    client.post(
+        f"/retainers/{quick['id']}/accept",
+        headers=quick_headers,
+    )
+
+    r = check(
+        "zero notice ends it today",
+        client.post(
+            f"/retainers/{quick['id']}/end",
+            json={"reason": "Mutual."},
+            headers=brand,
+        ),
+        200,
+    )
+    assert r.json()["status"] == "ended", r.json()
+    assert r.json()["under_notice"] is False, r.json()
 
     print("\n--- the plan limit ---")
 

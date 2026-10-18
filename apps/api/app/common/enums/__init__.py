@@ -18,6 +18,7 @@ from app.common.enums.invitable_workspace_role import (
     InvitableWorkspaceRole,
 )
 from app.common.enums.review_decision import ReviewDecision
+from app.common.enums.retainer_request import RetainerRequest
 from app.common.enums.retainer_status import (
     OCCUPYING_STATUSES,
     TERMINAL_STATUSES,
@@ -48,6 +49,7 @@ __all__ = [
     "DeliverableStatus",
     "DeliverableType",
     "InvitableWorkspaceRole",
+    "RetainerRequest",
     "RetainerStatus",
     "ReviewDecision",
     "SocialPlatform",

@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.common.enums import RetainerStatus
@@ -28,6 +28,13 @@ class BrandRepository:
         self.db = db
 
     def count_live_retainers(self, workspace_id: UUID) -> int:
+        """
+        A retainer under notice is still live - the work and the
+        money both continue until the date runs out. One past that
+        date is not, even though nothing rewrote its status.
+        """
+        today = date.today()
+
         return (
             self.db.execute(
                 select(func.count())
@@ -36,6 +43,10 @@ class BrandRepository:
                     Retainer.brand_workspace_id == workspace_id,
                     Retainer.status == RetainerStatus.ACTIVE,
                     Retainer.deleted_at.is_(None),
+                    or_(
+                        Retainer.end_date.is_(None),
+                        Retainer.end_date >= today,
+                    ),
                 )
             ).scalar_one()
             or 0

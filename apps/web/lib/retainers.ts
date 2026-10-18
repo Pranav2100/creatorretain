@@ -82,6 +82,8 @@ export type RetainerSummary = {
   your_side: "brand" | "creator";
   monthly_deliverable_count: number;
   periods_so_far: number;
+  under_notice: boolean;
+  awaiting_you: boolean;
   created_at: string;
 };
 
@@ -107,7 +109,22 @@ export type RetainerDetail = {
   paused_at: string | null;
   ended_at: string | null;
   ended_reason: string | null;
+  pending: PendingChange | null;
+  under_notice: boolean;
+  notice_given_at: string | null;
+  notice_given_by_side: "brand" | "creator" | null;
   created_at: string;
+};
+
+export type ChangeAction = "pause" | "resume";
+
+export type PendingChange = {
+  action: ChangeAction;
+  by_side: "brand" | "creator";
+  /** Whether the reader asked. Only the other side gets buttons. */
+  yours: boolean;
+  reason: string | null;
+  asked_at: string;
 };
 
 export const DELIVERABLE_LABEL: Record<DeliverableType, string> = {
@@ -194,7 +211,7 @@ export async function createRetainer(
 export async function actOnRetainer(
   token: string,
   id: string,
-  action: "accept" | "decline" | "cancel" | "pause" | "resume" | "end",
+  action: "accept" | "decline" | "cancel" | "end",
   payload?: Record<string, unknown>,
 ): Promise<RetainerDetail> {
   const response = await fetch(
@@ -207,6 +224,57 @@ export async function actOnRetainer(
   );
 
   return body(response);
+}
+
+/**
+ * Pausing and resuming are requests rather than commands: they do
+ * nothing until the other side agrees. Kept apart from
+ * actOnRetainer because the shape really is different - there is
+ * an answer outstanding, and someone has to give it.
+ */
+export async function askForChange(
+  token: string,
+  id: string,
+  action: ChangeAction,
+  reason?: string | null,
+): Promise<RetainerDetail> {
+  return body(
+    await fetch(`${API_URL}/retainers/${id}/requests`, {
+      method: "POST",
+      headers: headers(token),
+      body: JSON.stringify({ action, reason: reason || null }),
+    }),
+  );
+}
+
+export async function answerChange(
+  token: string,
+  id: string,
+  answer: "approve" | "reject",
+  reason?: string | null,
+): Promise<RetainerDetail> {
+  return body(
+    await fetch(`${API_URL}/retainers/${id}/requests/${answer}`, {
+      method: "POST",
+      headers: headers(token),
+      body:
+        answer === "reject" && reason
+          ? JSON.stringify({ reason })
+          : undefined,
+    }),
+  );
+}
+
+export async function withdrawChange(
+  token: string,
+  id: string,
+): Promise<RetainerDetail> {
+  return body(
+    await fetch(`${API_URL}/retainers/${id}/requests`, {
+      method: "DELETE",
+      headers: headers(token),
+    }),
+  );
 }
 
 export async function submitDeliverable(

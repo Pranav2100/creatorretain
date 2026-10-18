@@ -14,8 +14,8 @@ class SupabaseFileStore(FileStore):
     calls in total, and a plain request keeps a large dependency
     and its own transitive tree out of the project.
 
-    The service role key used here bypasses row level security, so
-    it lives only on the API and never reaches a browser. The
+    The secret key used here bypasses row level security, so it
+    lives only on the API and never reaches a browser. The
     bucket is public to read, which is what makes a logo loadable
     from an <img> without signing every URL; writing still needs
     this key.

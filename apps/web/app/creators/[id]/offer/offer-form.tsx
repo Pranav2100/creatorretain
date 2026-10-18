@@ -101,7 +101,7 @@ export function OfferForm({
                 min={0}
                 max={60}
                 placeholder="0"
-                className="w-full rounded-lg border border-line bg-white px-2.5 py-2 text-[15px] tabular-nums text-ink outline-none placeholder:text-muted/50 focus:border-pine"
+                className="w-full rounded-lg border border-line bg-white px-2.5 py-2 text-[15px] tabular-nums text-ink outline-none placeholder:text-muted/60 focus:border-pine"
               />
             </label>
           ))}
@@ -120,7 +120,12 @@ export function OfferForm({
         <textarea
           name="message"
           rows={3}
-          className="w-full resize-y rounded-lg border border-line bg-white px-3 py-2.5 text-[15px] leading-relaxed text-ink outline-none focus:border-pine"
+          placeholder={
+            `We have been watching your reels for a while and the ` +
+            `tone is right for our client. Happy to talk the brief ` +
+            `through before you decide.`
+          }
+          className="w-full resize-y rounded-lg border border-line bg-white px-3 py-2.5 text-[15px] leading-relaxed text-ink outline-none placeholder:text-muted/60 focus:border-pine"
         />
       </label>
 
@@ -131,7 +136,11 @@ export function OfferForm({
         <textarea
           name="terms"
           rows={2}
-          className="w-full resize-y rounded-lg border border-line bg-white px-3 py-2.5 text-[15px] leading-relaxed text-ink outline-none focus:border-pine"
+          placeholder={
+            "Drafts by the 20th, paid within seven days of the " +
+            "month ending, usage limited to our own channels."
+          }
+          className="w-full resize-y rounded-lg border border-line bg-white px-3 py-2.5 text-[15px] leading-relaxed text-ink outline-none placeholder:text-muted/60 focus:border-pine"
         />
       </label>
 

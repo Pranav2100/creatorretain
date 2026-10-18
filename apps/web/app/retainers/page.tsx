@@ -105,6 +105,7 @@ function Row({ retainer }: { retainer: RetainerSummary }) {
               read as though the money were the eleven. */}
           <p className="mt-1.5 text-[13px] text-muted">
             {STATUS_LABEL[retainer.status]}
+            {retainer.under_notice && " · under notice"}
             {` · ${retainer.monthly_deliverable_count} ${
               retainer.monthly_deliverable_count === 1
                 ? "piece"
@@ -115,6 +116,14 @@ function Row({ retainer }: { retainer: RetainerSummary }) {
                 retainer.periods_so_far === 1 ? "month" : "months"
               } so far`}
           </p>
+
+          {/* The one thing on this row someone has to act on, so
+              it gets its own line and the only colour here. */}
+          {retainer.awaiting_you && (
+            <p className="mt-1.5 text-[13px] text-pine">
+              Waiting on your answer
+            </p>
+          )}
         </div>
 
         <div className="w-28 shrink-0 text-right">

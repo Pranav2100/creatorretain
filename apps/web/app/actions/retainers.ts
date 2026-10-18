@@ -7,9 +7,13 @@ import { ApiError } from "@/lib/api";
 import { noError, type FormState } from "@/lib/forms";
 import {
   actOnRetainer,
+  answerChange,
+  askForChange,
   createRetainer,
   reviewDeliverable,
   submitDeliverable,
+  withdrawChange,
+  type ChangeAction,
   type ReviewDecision,
 } from "@/lib/retainers";
 import { requireToken } from "@/lib/session";
@@ -131,8 +135,6 @@ export async function answerRetainer(
     | "accept"
     | "decline"
     | "cancel"
-    | "pause"
-    | "resume"
     | "end";
 
   const reason = String(formData.get("reason") ?? "").trim();
@@ -146,6 +148,71 @@ export async function answerRetainer(
     ),
   );
 
+  return refreshed(state, id);
+}
+
+/**
+ * Asking the other side to pause or resume.
+ *
+ * Nothing changes until they answer, so the only thing this does
+ * on its own is put a question on the retainer.
+ */
+export async function requestChange(
+  _previous: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const token = await requireToken();
+
+  const id = String(formData.get("retainer_id") ?? "");
+  const action = String(formData.get("action") ?? "") as ChangeAction;
+  const reason = String(formData.get("reason") ?? "").trim();
+
+  return refreshed(
+    await attempt(() => askForChange(token, id, action, reason)),
+    id,
+  );
+}
+
+export async function answerRequest(
+  _previous: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const token = await requireToken();
+
+  const id = String(formData.get("retainer_id") ?? "");
+  const answer =
+    String(formData.get("answer") ?? "") === "approve"
+      ? "approve"
+      : "reject";
+
+  const reason = String(formData.get("reason") ?? "").trim();
+
+  return refreshed(
+    await attempt(() => answerChange(token, id, answer, reason)),
+    id,
+  );
+}
+
+export async function withdrawRequest(
+  _previous: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const token = await requireToken();
+
+  const id = String(formData.get("retainer_id") ?? "");
+
+  return refreshed(
+    await attempt(() => withdrawChange(token, id)),
+    id,
+  );
+}
+
+/**
+ * Both screens that show a retainer have to be rebuilt after it
+ * changes, or the list still says "Running" while the page it
+ * links to says paused.
+ */
+function refreshed(state: FormState, id: string): FormState {
   if (!state.error) {
     revalidatePath(`/retainers/${id}`);
     revalidatePath("/retainers");

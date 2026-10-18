@@ -13,7 +13,13 @@ import {
 } from "@/lib/retainers";
 import { requireWorkspace } from "@/lib/session";
 
-import { AnswerButton, ReviewForm, SubmitWorkForm } from "./forms";
+import {
+  AnswerButton,
+  PendingBanner,
+  RequestButton,
+  ReviewForm,
+  SubmitWorkForm,
+} from "./forms";
 
 const DAY = { day: "numeric", month: "short" } as const;
 
@@ -142,6 +148,22 @@ export default async function RetainerPage(
           </div>
         )}
 
+        {retainer.under_notice && (
+          <NoticeBanner retainer={retainer} />
+        )}
+
+        {retainer.pending && (
+          <PendingBanner
+            retainerId={retainer.id}
+            pending={retainer.pending}
+            otherName={
+              retainer.your_side === "brand"
+                ? retainer.creator.display_name
+                : retainer.brand.display_name
+            }
+          />
+        )}
+
         <Actions retainer={retainer} />
 
         {periods.length > 0 && (
@@ -172,6 +194,48 @@ export default async function RetainerPage(
         )}
       </main>
     </>
+  );
+}
+
+/**
+ * Notice has been served and the wind-down is running.
+ *
+ * Said plainly rather than left as a date in a corner: the work
+ * and the money both continue until that day, and whoever did not
+ * serve it needs to know how long they have.
+ */
+function NoticeBanner({ retainer }: { retainer: RetainerDetail }) {
+  const theirs =
+    retainer.notice_given_by_side !== retainer.your_side;
+
+  const who = theirs
+    ? retainer.your_side === "brand"
+      ? retainer.creator.display_name
+      : retainer.brand.display_name
+    : "You";
+
+  const finishes = retainer.end_date
+    ? new Date(retainer.end_date).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : null;
+
+  return (
+    <section className="mt-6 rounded-lg border border-line bg-white px-5 py-4">
+      <p className="text-[15px] leading-relaxed text-ink">
+        {who} gave notice. This runs until{" "}
+        <span className="tabular-nums">{finishes}</span>, and the
+        work and the money carry on until then.
+      </p>
+
+      {retainer.ended_reason && (
+        <p className="mt-2 max-w-[58ch] border-l-2 border-line pl-3 text-[14px] leading-relaxed text-muted">
+          {retainer.ended_reason}
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -210,39 +274,48 @@ function Actions({ retainer }: { retainer: RetainerDetail }) {
     );
   }
 
-  if (status === "active") {
-    buttons.push(
-      <AnswerButton
-        key="pause"
-        retainerId={id}
-        action="pause"
-        label="Pause"
-        asks="Why it is pausing"
-      />,
-      <AnswerButton
-        key="end"
-        retainerId={id}
-        action="end"
-        label="End it"
-        asks="Why it is ending"
-      />,
-    );
+  // A request already waiting is the only thing on offer: two
+  // competing asks on one agreement is not a state worth having.
+  const settled = retainer.pending === null;
+
+  const other =
+    side === "brand"
+      ? retainer.creator.display_name
+      : retainer.brand.display_name;
+
+  if (status === "active" && settled) {
+    if (!retainer.under_notice) {
+      buttons.push(
+        <RequestButton
+          key="pause"
+          retainerId={id}
+          action="pause"
+          otherName={other}
+        />,
+        <AnswerButton
+          key="end"
+          retainerId={id}
+          action="end"
+          label="Give notice"
+          asks="Why it is ending"
+        />,
+      );
+    }
   }
 
-  if (status === "paused") {
+  if (status === "paused" && settled) {
     buttons.push(
-      <AnswerButton
+      <RequestButton
         key="resume"
         retainerId={id}
         action="resume"
-        label="Start again"
-        tone="loud"
+        otherName={other}
       />,
       <AnswerButton
         key="end"
         retainerId={id}
         action="end"
-        label="End it"
+        label="Give notice"
         asks="Why it is ending"
       />,
     );

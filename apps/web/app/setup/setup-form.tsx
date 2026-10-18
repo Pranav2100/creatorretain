@@ -106,7 +106,10 @@ export function SetupForm({ initialKind }: { initialKind: string }) {
           onChange={(event) => setName(event.target.value)}
           required
           maxLength={100}
-          className="w-full rounded-lg border border-line bg-white px-3 py-2.5 text-[15px] text-ink outline-none focus:border-pine"
+          placeholder={
+            kind === "creator" ? "Nina Cooks" : "TalentX Media"
+          }
+          className="w-full rounded-lg border border-line bg-white px-3 py-2.5 text-[15px] text-ink outline-none placeholder:text-muted/60 focus:border-pine"
         />
       </label>
 
@@ -124,7 +127,8 @@ export function SetupForm({ initialKind }: { initialKind: string }) {
           required
           minLength={3}
           maxLength={30}
-          className="w-full rounded-lg border border-line bg-white px-3 py-2.5 text-[15px] text-ink outline-none focus:border-pine"
+          placeholder={kind === "creator" ? "ninacooks" : "talentx"}
+          className="w-full rounded-lg border border-line bg-white px-3 py-2.5 text-[15px] text-ink outline-none placeholder:text-muted/60 focus:border-pine"
         />
 
         {check && handle.length >= 3 && (
@@ -143,7 +147,14 @@ export function SetupForm({ initialKind }: { initialKind: string }) {
                   <button
                     key={suggestion}
                     type="button"
-                    onClick={() => {
+                    onClick={(event) => {
+                      // Inside a form whose action is a server
+                      // action, a plain button still submits it -
+                      // so picking a suggestion would try to
+                      // create the workspace rather than fill the
+                      // box in.
+                      event.preventDefault();
+                      event.stopPropagation();
                       setTouched(true);
                       setUsername(suggestion);
                     }}
@@ -169,7 +180,8 @@ export function SetupForm({ initialKind }: { initialKind: string }) {
           <input
             name="legal_name"
             maxLength={200}
-            className="w-full rounded-lg border border-line bg-white px-3 py-2.5 text-[15px] text-ink outline-none focus:border-pine"
+            placeholder="TalentX Media Private Limited"
+            className="w-full rounded-lg border border-line bg-white px-3 py-2.5 text-[15px] text-ink outline-none placeholder:text-muted/60 focus:border-pine"
           />
         </label>
       )}

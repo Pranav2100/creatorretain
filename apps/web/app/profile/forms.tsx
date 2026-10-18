@@ -110,11 +110,19 @@ export function BasicsForm({
         <span className="mb-1.5 block text-[13px] text-muted">
           Bio
         </span>
+        {/* An example, not an instruction. A creator facing an
+            empty box writes two lines; one they can write over
+            shows them what a brand actually wants to read. */}
         <textarea
           name="bio"
           rows={4}
           defaultValue={profile.bio ?? ""}
-          placeholder="What you make, who it is for, how long you have been at it."
+          placeholder={
+            "Everyday Kerala cooking, filmed in my own kitchen. " +
+            "Six years of it, mostly reels, mostly in Malayalam " +
+            "with English subtitles. I write the recipes myself " +
+            "and I do not take work I would not cook at home."
+          }
           className={`${input} resize-y leading-relaxed`}
         />
       </label>
@@ -232,6 +240,7 @@ export function BasicsForm({
                 ? Math.round(Number(profile.monthly_retainer_min))
                 : ""
             }
+            placeholder="35000"
             className={`${input} tabular-nums`}
           />
           <span className="mt-1 block text-[12px] text-muted">
@@ -343,9 +352,14 @@ function LanguagePicker({
             <li key={value}>
               <button
                 type="button"
-                onClick={() =>
-                  onChange(spoken.filter((item) => item !== value))
-                }
+                onClick={(event) => {
+                  // A type="button" inside a form bound to a
+                  // server action still submits it, so removing a
+                  // language would quietly save the whole form.
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onChange(spoken.filter((item) => item !== value));
+                }}
                 aria-label={`Remove ${languageName(value)}`}
                 className="group flex items-baseline gap-2 rounded-lg border border-pine bg-white px-3 py-1.5 text-[14px] text-ink"
               >
@@ -413,7 +427,9 @@ function LanguagePicker({
 
             <button
               type="button"
-              onClick={() => {
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
                 add(draft);
                 setDraft("");
                 setTyping(false);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 
 import {
   clearLogo,
@@ -60,6 +60,7 @@ export function WorkspaceForm({
           name="display_name"
           defaultValue={workspace.display_name}
           maxLength={100}
+          placeholder="TalentX Media"
           className={input}
         />
         <span className="mt-1 block text-[12px] text-muted">
@@ -87,12 +88,22 @@ export function WorkspaceForm({
         <span className="mb-1.5 block text-[13px] text-muted">
           About
         </span>
+        {/* An example rather than an instruction. "Say who you
+            work with" tells someone what to do and leaves them
+            staring at an empty box; a paragraph they can write
+            over shows them the length and the tone expected. */}
         <textarea
           name="bio"
           rows={4}
           maxLength={500}
           defaultValue={workspace.bio ?? ""}
-          placeholder="Who you work with and what you put creators on retainer for."
+          placeholder={
+            "We are a Pune agency putting food and fitness brands " +
+            "on monthly retainers with regional creators. Six years " +
+            "in, around twenty creators on the books at any time. " +
+            "We pay on the first of the month and we review work " +
+            "within two days."
+          }
           className={`${input} resize-y leading-relaxed`}
         />
       </label>
@@ -141,6 +152,30 @@ export function LogoForm({ current }: { current: string | null }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [chosen, setChosen] = useState<string | null>(null);
   const [refused, setRefused] = useState<string | null>(null);
+
+  /**
+   * A new logo arriving from the server means the upload landed,
+   * so the local preview has done its job and the Upload button
+   * has nothing left to upload.
+   *
+   * Watching `current` rather than the action's result because
+   * the result cannot tell success from "not submitted yet" -
+   * both are simply "no error". The server changing its mind
+   * about what the logo is can.
+   */
+  useEffect(() => {
+    setPreview(null);
+    setChosen(null);
+    setRefused(null);
+  }, [current]);
+
+  // An object URL is held until it is let go of, so release the
+  // old one whenever it is replaced or the form goes away.
+  useEffect(() => {
+    if (!preview) return;
+
+    return () => URL.revokeObjectURL(preview);
+  }, [preview]);
 
   const shown = preview ?? current;
 

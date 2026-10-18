@@ -8,6 +8,7 @@ from app.api.errors import http_error
 from app.common.enums import RetainerStatus
 from app.database.models.user import User
 from app.schemas.retainer import (
+    ChangeRequestBody,
     CreateRetainerRequest,
     DeclineRequest,
     DeliverableResponse,
@@ -101,7 +102,11 @@ def list_retainers(
 
         return RetainerListResponse(
             retainers=[
-                RetainerSummary.from_retainer(r, workspace_id)
+                RetainerSummary.from_retainer(
+                    r,
+                    workspace_id,
+                    service.clock(),
+                )
                 for r in retainers
             ],
             total=len(retainers),
@@ -249,43 +254,89 @@ def cancel_retainer(
 
 
 @router.post(
-    "/{retainer_id}/pause",
+    "/{retainer_id}/requests",
     response_model=RetainerDetail,
     responses=PLAN_OR_PERMISSION,
-    summary="Stop the clock without ending the agreement",
+    summary="Ask the other side to pause or resume",
 )
-def pause_retainer(
+def request_change(
     retainer_id: UUID,
-    payload: PauseRequest | None = None,
+    payload: ChangeRequestBody,
     current_user: User = Depends(get_current_user),
     service: RetainerService = Depends(get_retainer_service),
 ):
     try:
-        retainer = service.pause(
+        service.request_change(
             current_user.id,
             retainer_id,
-            reason=payload.reason if payload else None,
+            action=payload.action,
+            reason=payload.reason,
         )
 
-        return _detail(service, current_user.id, retainer.id)
+        return _detail(service, current_user.id, retainer_id)
 
     except ValueError as e:
         raise http_error(e)
 
 
 @router.post(
-    "/{retainer_id}/resume",
+    "/{retainer_id}/requests/approve",
     response_model=RetainerDetail,
     responses=PLAN_OR_PERMISSION,
-    summary="Start the clock again from today",
+    summary="Agree to what the other side asked for",
 )
-def resume_retainer(
+def approve_change(
     retainer_id: UUID,
     current_user: User = Depends(get_current_user),
     service: RetainerService = Depends(get_retainer_service),
 ):
     try:
-        service.resume(current_user.id, retainer_id)
+        service.approve_change(current_user.id, retainer_id)
+
+        return _detail(service, current_user.id, retainer_id)
+
+    except ValueError as e:
+        raise http_error(e)
+
+
+@router.post(
+    "/{retainer_id}/requests/reject",
+    response_model=RetainerDetail,
+    responses=PLAN_OR_PERMISSION,
+    summary="Say no to what the other side asked for",
+)
+def reject_change(
+    retainer_id: UUID,
+    payload: PauseRequest | None = None,
+    current_user: User = Depends(get_current_user),
+    service: RetainerService = Depends(get_retainer_service),
+):
+    try:
+        service.reject_change(
+            current_user.id,
+            retainer_id,
+            reason=payload.reason if payload else None,
+        )
+
+        return _detail(service, current_user.id, retainer_id)
+
+    except ValueError as e:
+        raise http_error(e)
+
+
+@router.delete(
+    "/{retainer_id}/requests",
+    response_model=RetainerDetail,
+    responses=PLAN_OR_PERMISSION,
+    summary="Take back a request you made",
+)
+def withdraw_change(
+    retainer_id: UUID,
+    current_user: User = Depends(get_current_user),
+    service: RetainerService = Depends(get_retainer_service),
+):
+    try:
+        service.withdraw_change(current_user.id, retainer_id)
 
         return _detail(service, current_user.id, retainer_id)
 

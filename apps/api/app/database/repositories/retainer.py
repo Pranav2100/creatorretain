@@ -1,3 +1,4 @@
+from datetime import date
 from uuid import UUID
 
 from sqlalchemy import or_
@@ -62,12 +63,19 @@ class RetainerRepository(BaseRepository[Retainer]):
         self,
         brand_workspace_id: UUID,
         statuses: tuple[RetainerStatus, ...],
+        today: date,
     ) -> int:
         """
         How many of the workspace's plan slots are already taken.
 
         Counted on the paying side only: being hired does not use
         up a creator's allowance.
+
+        A retainer under notice still counts, because it is still
+        running and still being paid for. One whose notice has run
+        out does not, even though its stored status never changed:
+        the same derivation the model does, written in SQL so the
+        count does not have to load every row to work it out.
         """
         return (
             self.db.query(self.model)
@@ -75,6 +83,10 @@ class RetainerRepository(BaseRepository[Retainer]):
                 self.model.brand_workspace_id == brand_workspace_id,
                 self.model.status.in_(statuses),
                 self.model.deleted_at.is_(None),
+                or_(
+                    self.model.end_date.is_(None),
+                    self.model.end_date >= today,
+                ),
             )
             .count()
         )

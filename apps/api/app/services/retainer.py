@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID
 
@@ -9,6 +9,7 @@ from app.common.enums import (
     TERMINAL_STATUSES,
     DeliverableStatus,
     DeliverableType,
+    RetainerRequest,
     RetainerStatus,
     ReviewDecision,
     WorkspaceType,
@@ -190,6 +191,7 @@ class RetainerService:
         taken = self.repository.count_occupying(
             context.workspace_id,
             OCCUPYING_STATUSES,
+            self.clock(),
         )
         context.require_within_limit(
             "active_retainers",
@@ -468,51 +470,152 @@ class RetainerService:
     # Running it
     # ------------------------------------------------------------------
 
-    def pause(
+    def request_change(
         self,
         current_user_id: UUID,
         retainer_id: UUID,
+        *,
+        action: RetainerRequest,
         reason: str | None = None,
     ) -> Retainer:
-        context, retainer, _ = self._resolve(
+        """
+        Asks the other side for a pause or a resume.
+
+        Nothing changes here except that a question is now on the
+        table. Pausing stops the months accruing and therefore the
+        money, so it is not one party's to do alone.
+        """
+        context, retainer, side = self._resolve(
             current_user_id,
             retainer_id,
         )
         context.require(WorkspacePermission.MANAGE_RETAINERS)
 
+        if retainer.pending_action is not None:
+            raise ConflictError(
+                "There is already a request waiting on an answer."
+            )
+
         self._require_status(
             retainer,
-            RetainerStatus.ACTIVE,
-            "Only an active retainer can be paused.",
+            action.requires_status,
+            "Only an active retainer can be paused."
+            if action == RetainerRequest.PAUSE
+            else "This retainer is not paused.",
         )
 
+        retainer.pending_action = action
+        retainer.pending_by_side = side
+        retainer.pending_by_user_id = current_user_id
+        retainer.pending_at = self._now()
+        retainer.pending_reason = reason
+
+        return self.repository.save(retainer)
+
+    def approve_change(
+        self,
+        current_user_id: UUID,
+        retainer_id: UUID,
+    ) -> Retainer:
+        """The other side says yes, and only then does it happen."""
+        context, retainer, side = self._resolve(
+            current_user_id,
+            retainer_id,
+        )
+        context.require(WorkspacePermission.MANAGE_RETAINERS)
+
+        action = self._pending_for_answer(retainer, side)
+
+        if action == RetainerRequest.PAUSE:
+            return self._apply_pause(retainer)
+
+        return self._apply_resume(retainer)
+
+    def reject_change(
+        self,
+        current_user_id: UUID,
+        retainer_id: UUID,
+        reason: str | None = None,
+    ) -> Retainer:
+        context, retainer, side = self._resolve(
+            current_user_id,
+            retainer_id,
+        )
+        context.require(WorkspacePermission.MANAGE_RETAINERS)
+
+        self._pending_for_answer(retainer, side)
+        self._clear_pending(retainer)
+
+        return self.repository.save(retainer)
+
+    def withdraw_change(
+        self,
+        current_user_id: UUID,
+        retainer_id: UUID,
+    ) -> Retainer:
+        """Taking back your own request before it is answered."""
+        context, retainer, side = self._resolve(
+            current_user_id,
+            retainer_id,
+        )
+        context.require(WorkspacePermission.MANAGE_RETAINERS)
+
+        if retainer.pending_action is None:
+            raise ConflictError("There is nothing waiting.")
+
+        if retainer.pending_by_side != side:
+            raise PermissionDeniedError(
+                "That request is not yours to withdraw."
+            )
+
+        self._clear_pending(retainer)
+
+        return self.repository.save(retainer)
+
+    def _pending_for_answer(
+        self,
+        retainer: Retainer,
+        side: str,
+    ) -> RetainerRequest:
+        """
+        The request this side is entitled to answer.
+
+        Approving your own request would make approval meaningless,
+        so the side that asked is sent to withdraw instead.
+        """
+        if retainer.pending_action is None:
+            raise ConflictError("There is nothing waiting on you.")
+
+        if retainer.pending_by_side == side:
+            raise ConflictError(
+                "You asked for this. Withdraw it instead, or wait "
+                "for an answer."
+            )
+
+        return retainer.pending_action
+
+    @staticmethod
+    def _clear_pending(retainer: Retainer) -> None:
+        retainer.pending_action = None
+        retainer.pending_by_side = None
+        retainer.pending_by_user_id = None
+        retainer.pending_at = None
+        retainer.pending_reason = None
+
+    def _apply_pause(self, retainer: Retainer) -> Retainer:
         # Bring the record up to date before freezing it, so the
         # month in progress is not lost.
         self.ensure_periods(retainer)
 
         retainer.status = RetainerStatus.PAUSED
         retainer.paused_at = self._now()
-        retainer.ended_reason = reason
+        retainer.ended_reason = retainer.pending_reason
+
+        self._clear_pending(retainer)
 
         return self.repository.save(retainer)
 
-    def resume(
-        self,
-        current_user_id: UUID,
-        retainer_id: UUID,
-    ) -> Retainer:
-        context, retainer, _ = self._resolve(
-            current_user_id,
-            retainer_id,
-        )
-        context.require(WorkspacePermission.MANAGE_RETAINERS)
-
-        self._require_status(
-            retainer,
-            RetainerStatus.PAUSED,
-            "This retainer is not paused.",
-        )
-
+    def _apply_resume(self, retainer: Retainer) -> Retainer:
         today = self.clock()
         used = self.repository.existing_sequences(retainer.id)
 
@@ -529,6 +632,8 @@ class RetainerService:
         # earned, so the next one is 4 rather than a second 1.
         retainer.sequence_offset = max(used) if used else 0
 
+        self._clear_pending(retainer)
+
         saved = self.repository.save(retainer)
         self.ensure_periods(saved)
 
@@ -540,7 +645,7 @@ class RetainerService:
         retainer_id: UUID,
         reason: str | None = None,
     ) -> Retainer:
-        context, retainer, _ = self._resolve(
+        context, retainer, side = self._resolve(
             current_user_id,
             retainer_id,
         )
@@ -555,13 +660,39 @@ class RetainerService:
                 "it instead."
             )
 
+        if retainer.notice_given_at is not None:
+            raise ConflictError(
+                "Notice has already been given on this retainer."
+            )
+
         self.ensure_periods(retainer)
 
-        retainer.status = RetainerStatus.ENDED
-        retainer.ended_at = self._now()
+        today = self.clock()
+
+        # Notice rather than permission. Needing the other side to
+        # agree would let either of them refuse forever, and the
+        # length of the wind-down was already agreed when this was
+        # signed - which is exactly what a notice period is for.
+        finishes = today + timedelta(days=retainer.notice_period_days)
+
+        retainer.end_date = finishes
+        retainer.notice_given_at = self._now()
+        retainer.notice_given_by_side = side
         retainer.ended_reason = reason
 
-        return self.repository.save(retainer)
+        # A request waiting on an answer is moot once someone is
+        # walking away from the whole thing.
+        self._clear_pending(retainer)
+
+        # Zero notice means it is over today, so record that now
+        # rather than leaving it to be derived.
+        if retainer.notice_period_days == 0:
+            retainer.status = RetainerStatus.ENDED
+            retainer.ended_at = self._now()
+
+        saved = self.repository.save(retainer)
+
+        return self.repository.get_full(saved.id) or saved
 
     # ------------------------------------------------------------------
     # The work itself
