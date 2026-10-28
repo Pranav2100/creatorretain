@@ -123,7 +123,21 @@ def register(email, first, last):
     )
     assert login.status_code == 200, login.text
 
-    return {"Authorization": f"Bearer {login.json()['access_token']}"}
+    headers = {
+        "Authorization": f"Bearer {login.json()['access_token']}"
+    }
+
+    # Joining someone else's workspace needs a job title and a
+    # phone, because the creators that workspace hires are shown
+    # both. Filled in here so these checks stay about their own
+    # subject; the gate itself is checked in verify_collaboration.
+    client.patch(
+        "/auth/me",
+        json={"job_title": "Talent Manager", "phone": "+919876543210"},
+        headers=headers,
+    )
+
+    return headers
 
 
 def make_workspace(headers, name, username, kind):

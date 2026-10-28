@@ -57,15 +57,15 @@ function Error({ message }: { message: string | null }) {
 // string does nothing - they are the same specificity, so the
 // stylesheet order decides and w-full wins.
 const field =
-  "rounded-lg border border-line bg-white px-3 py-2.5 text-[15px] text-ink outline-none placeholder:text-muted/60 focus:border-pine";
+  "rounded-lg border border-line bg-surface px-3 py-2.5 text-[15px] text-ink outline-none placeholder:text-muted focus:border-pine";
 
 const input = `w-full ${field}`;
 
 const quiet =
-  "rounded-lg border border-line bg-white px-4 py-2.5 text-[14px] text-ink transition-colors hover:border-pine disabled:opacity-60";
+  "rounded-lg border border-line bg-surface px-4 py-2.5 text-[14px] text-ink transition-colors hover:border-pine disabled:opacity-60";
 
 const loud =
-  "rounded-lg bg-pine px-5 py-2.5 text-[14px] text-white transition-opacity hover:opacity-90 disabled:opacity-60";
+  "rounded-lg bg-pine px-5 py-2.5 text-[14px] text-on-pine transition-opacity hover:opacity-90 disabled:opacity-60";
 
 export function BasicsForm({
   profile,
@@ -361,7 +361,7 @@ function LanguagePicker({
                   onChange(spoken.filter((item) => item !== value));
                 }}
                 aria-label={`Remove ${languageName(value)}`}
-                className="group flex items-baseline gap-2 rounded-lg border border-pine bg-white px-3 py-1.5 text-[14px] text-ink"
+                className="group flex items-baseline gap-2 rounded-lg border border-pine bg-surface px-3 py-1.5 text-[14px] text-ink"
               >
                 {languageName(value)}
                 <span
@@ -482,10 +482,16 @@ export function CategoriesForm({
               key={category.id}
               className={`cursor-pointer rounded-lg border px-3 py-1.5 text-[14px] transition-colors ${
                 on
-                  ? "border-pine bg-white text-ink"
+                  ? "border-pine bg-surface text-ink"
                   : full
-                    ? "border-line text-muted/60"
-                    : "border-line text-muted hover:bg-white"
+                    ? // Faded on purpose: you have already picked
+                      // as many as you are allowed, so these are
+                      // not available. An inactive control is the
+                      // one case the contrast rules exempt, and
+                      // looking identical to an available one
+                      // would be worse than looking faint.
+                      "border-line text-muted/60"
+                    : "border-line text-muted hover:bg-surface"
               }`}
             >
               <input

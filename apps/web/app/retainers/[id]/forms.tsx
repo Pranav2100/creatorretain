@@ -14,10 +14,10 @@ import { noError } from "@/lib/forms";
 import type { ChangeAction, PendingChange } from "@/lib/retainers";
 
 const loud =
-  "rounded-lg bg-pine px-4 py-2.5 text-[14px] text-white transition-opacity hover:opacity-90 disabled:opacity-60";
+  "rounded-lg bg-pine px-4 py-2.5 text-[14px] text-on-pine transition-opacity hover:opacity-90 disabled:opacity-60";
 
 const quiet =
-  "rounded-lg border border-line px-4 py-2.5 text-[14px] text-ink transition-colors hover:bg-white disabled:opacity-60";
+  "rounded-lg border border-line px-4 py-2.5 text-[14px] text-ink transition-colors hover:bg-surface disabled:opacity-60";
 
 function Error({ message }: { message: string | null }) {
   if (!message) return null;
@@ -83,7 +83,7 @@ export function AnswerButton({
           name="reason"
           placeholder={asks}
           autoFocus
-          className="mb-2 w-full rounded-lg border border-line bg-white px-3 py-2 text-[14px] text-ink outline-none focus:border-pine"
+          className="mb-2 w-full rounded-lg border border-line bg-surface px-3 py-2 text-[14px] text-ink outline-none focus:border-pine"
         />
       )}
 
@@ -150,7 +150,7 @@ export function RequestButton({
           name="reason"
           autoFocus
           placeholder={`Why, so ${otherName} can decide`}
-          className="mb-2 w-full rounded-lg border border-line bg-white px-3 py-2 text-[14px] text-ink outline-none placeholder:text-muted/60 focus:border-pine"
+          className="mb-2 w-full rounded-lg border border-line bg-surface px-3 py-2 text-[14px] text-ink outline-none placeholder:text-muted focus:border-pine"
         />
 
         <button type="submit" disabled={pending} className={loud}>
@@ -201,7 +201,7 @@ export function PendingBanner({
   const [saying, setSaying] = useState(false);
 
   return (
-    <section className="mt-6 rounded-lg border border-pine bg-white px-5 py-4">
+    <section className="mt-6 rounded-lg border border-pine bg-surface px-5 py-4">
       <p className="text-[15px] leading-relaxed text-ink">
         {pending.yours
           ? `You asked ${otherName} ${ASKED[pending.action]}.`
@@ -260,7 +260,7 @@ export function PendingBanner({
                   name="reason"
                   autoFocus
                   placeholder="Why not, if you want to say"
-                  className="min-w-0 flex-1 rounded-lg border border-line bg-white px-3 py-2 text-[14px] text-ink outline-none placeholder:text-muted/60 focus:border-pine"
+                  className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-[14px] text-ink outline-none placeholder:text-muted focus:border-pine"
                 />
 
                 <button
@@ -349,12 +349,12 @@ export function SubmitWorkForm({
           type="url"
           required
           placeholder="https://instagram.com/p/..."
-          className="min-w-0 flex-1 rounded-lg border border-line bg-white px-3 py-2 text-[14px] text-ink outline-none placeholder:text-muted/60 focus:border-pine"
+          className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-[14px] text-ink outline-none placeholder:text-muted focus:border-pine"
         />
         <input
           name="note"
           placeholder="Anything to add"
-          className="min-w-0 flex-1 rounded-lg border border-line bg-white px-3 py-2 text-[14px] text-ink outline-none placeholder:text-muted/60 focus:border-pine"
+          className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-[14px] text-ink outline-none placeholder:text-muted focus:border-pine"
         />
         {/* Quiet on purpose: this button repeats on every
             deliverable, and six loud ones in a column read as
@@ -362,7 +362,7 @@ export function SubmitWorkForm({
         <button
           type="submit"
           disabled={pending}
-          className="rounded-lg border border-line bg-white px-4 py-2 text-[14px] text-ink transition-colors hover:border-pine disabled:opacity-60"
+          className="rounded-lg border border-line bg-surface px-4 py-2 text-[14px] text-ink transition-colors hover:border-pine disabled:opacity-60"
         >
           {pending
             ? "Sending"
@@ -424,12 +424,12 @@ export function ReviewForm({
               autoFocus
               required
               placeholder="What needs changing"
-              className="min-w-0 flex-1 rounded-lg border border-line bg-white px-3 py-2 text-[14px] text-ink outline-none placeholder:text-muted/60 focus:border-pine"
+              className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-[14px] text-ink outline-none placeholder:text-muted focus:border-pine"
             />
             <button
               type="submit"
               disabled={pending}
-              className="rounded-lg bg-pine px-4 py-2 text-[14px] text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+              className="rounded-lg bg-pine px-4 py-2 text-[14px] text-on-pine transition-opacity hover:opacity-90 disabled:opacity-60"
             >
               {pending ? "Sending" : "Send back"}
             </button>
@@ -451,7 +451,7 @@ export function ReviewForm({
             <button
               type="submit"
               disabled={pending}
-              className="rounded-lg bg-pine px-4 py-2 text-[14px] text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+              className="rounded-lg bg-pine px-4 py-2 text-[14px] text-on-pine transition-opacity hover:opacity-90 disabled:opacity-60"
             >
               {pending ? "Working" : "Approve"}
             </button>
@@ -460,7 +460,7 @@ export function ReviewForm({
           <button
             type="button"
             onClick={() => setChanges(true)}
-            className="rounded-lg border border-line px-4 py-2 text-[14px] text-ink transition-colors hover:bg-white"
+            className="rounded-lg border border-line px-4 py-2 text-[14px] text-ink transition-colors hover:bg-surface"
           >
             Ask for changes
           </button>

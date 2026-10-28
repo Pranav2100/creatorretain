@@ -63,7 +63,7 @@ export function SignUpForm({ as }: { as: string }) {
       <button
         type="submit"
         disabled={pending}
-        className="mt-6 w-full rounded-lg bg-pine py-3 text-[15px] text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+        className="mt-6 w-full rounded-lg bg-pine py-3 text-[15px] text-on-pine transition-opacity hover:opacity-90 disabled:opacity-60"
       >
         {pending ? "Creating your account" : "Create account"}
       </button>
@@ -106,7 +106,7 @@ function Field({
         type={type}
         autoComplete={autoComplete}
         required
-        className="w-full rounded-lg border border-line bg-white px-3 py-2.5 text-[15px] text-ink outline-none transition-colors focus:border-pine"
+        className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-[15px] text-ink outline-none transition-colors focus:border-pine"
       />
       {hint && (
         <span className="mt-1 block text-[12px] text-muted">

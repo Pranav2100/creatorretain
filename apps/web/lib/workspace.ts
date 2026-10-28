@@ -23,7 +23,30 @@ export type Capability =
   | "verified_badge"
   | "represent_creators";
 
-export type WorkspaceRole = "owner" | "admin" | "member";
+export type WorkspaceRole =
+  | "owner"
+  | "admin"
+  | "manager"
+  | "member";
+
+/**
+ * How senior a role is. Every question about who may act on whom
+ * is a comparison of two of these, which is why it is a number
+ * rather than a list of pairs.
+ */
+export const RANK: Record<WorkspaceRole, number> = {
+  member: 0,
+  manager: 1,
+  admin: 2,
+  owner: 3,
+};
+
+export const ROLE_LABEL: Record<WorkspaceRole, string> = {
+  owner: "Owner",
+  admin: "Admin",
+  manager: "Manager",
+  member: "Member",
+};
 
 export type WorkspaceSummary = {
   id: string;
@@ -40,8 +63,21 @@ export type WorkspaceSummary = {
 };
 
 /** Owners and admins may rewrite the workspace; members may not. */
+/**
+ * Whether this role may change the workspace itself - its page,
+ * its team, who runs which account. A Manager runs accounts but
+ * does not run the company, so this is false for them.
+ */
 export function canEdit(role: WorkspaceRole): boolean {
   return role === "owner" || role === "admin";
+}
+
+/**
+ * Whether this role sees every retainer the workspace has, or
+ * only the ones put in their hands.
+ */
+export function seesEveryRetainer(role: WorkspaceRole): boolean {
+  return role !== "manager";
 }
 
 export type PlanState = {

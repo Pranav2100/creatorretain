@@ -1,15 +1,81 @@
 @import "tailwindcss";
 
+/*
+ * Every colour in the app is a token, and no component names a
+ * colour of its own. That is what makes the palette cheap to
+ * argue about: changing how the app looks is editing the two
+ * blocks below, not hunting through components.
+ *
+ * Nine tokens, and each one answers a question a component would
+ * otherwise have to answer for itself:
+ *
+ *   paper       the page behind everything
+ *   surface     anything raised off the page - cards, inputs
+ *   ink         text you are meant to read
+ *   muted       text that is there if you look for it
+ *   line        hairlines and edges
+ *   pine        the accent: links, buttons, focus
+ *   pine-hover  the accent, pressed
+ *   on-pine     text sitting on the accent
+ *   alarm       something went wrong
+ *
+ * on-pine exists because "white" is not the answer in both
+ * themes. In light mode pine is dark and its label is white; in
+ * dark mode pine lightens into a sage and its label has to go
+ * near-black. A component that said text-white would be wrong
+ * half the time, so it says text-on-pine and the theme decides.
+ */
 @theme {
   --color-paper: #eaece6;
+  --color-surface: #ffffff;
   --color-ink: #15181a;
-  --color-muted: #82877f;
+  /* Was #82877f, which is 3.08:1 on paper - under the 4.5:1 that
+     normal-size text needs, and this carries every piece of
+     secondary text in the app. Darkened along its own hue rather
+     than replaced, so it is the same grey-green, now legible. */
+  --color-muted: #676b65;
   --color-line: #dcded7;
   --color-pine: #2c5647;
+  --color-pine-hover: #24473a;
+  --color-on-pine: #ffffff;
+  --color-alarm: #b4432f;
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-display: var(--font-fraunces);
+}
+
+/*
+ * Dark is the same palette read in reverse, not a different one.
+ * Paper and surface are warm near-blacks rather than true black
+ * so the page keeps the warmth it has in light mode, and surface
+ * still sits above paper so a card still reads as raised.
+ *
+ * One block, one selector. The script in the document head
+ * resolves "what the operating system wants" into a real
+ * data-theme before anything paints, so the stylesheet never has
+ * to ask - which is why there is no prefers-color-scheme copy of
+ * all of this to keep in step.
+ */
+:root[data-theme="dark"] {
+  --color-paper: #14171a;
+  --color-surface: #1c2023;
+  --color-ink: #e9ebe5;
+  --color-muted: #8d938b;
+  --color-line: #2b3033;
+  --color-pine: #7fb49f;
+  --color-pine-hover: #95c4b1;
+  --color-on-pine: #11150f;
+  --color-alarm: #e08b78;
+
+  /* Form controls, scrollbars and the flash behind a loading
+     page are drawn by the browser, not by us. Without this they
+     stay light and the seams show. */
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 
 body {
@@ -18,10 +84,38 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
+/*
+ * The theme control has two homes. Pages with a bar of their own
+ * put it in that bar and mark it data-theme-host; every other
+ * page - sign in, the invite screen, a 404 - gets the floating
+ * one instead. This hides the floating one rather than asking
+ * each page to decide, so a page added later is covered without
+ * anybody remembering to cover it.
+ */
+body:has([data-theme-host]) .theme-corner {
+  display: none;
+}
+
+/*
+ * Which icon the control shows is decided by the attribute on
+ * <html>, not by React state. The attribute is already correct
+ * before the first paint, so the right icon is right immediately
+ * and there is no mismatch between what the server rendered and
+ * what the browser knows - the usual cause of a theme control
+ * flickering through the wrong icon on load.
+ */
+:root[data-theme="dark"] .when-light {
+  display: none;
+}
+
+:root:not([data-theme="dark"]) .when-dark {
+  display: none;
+}
+
 .notch {
   position: relative;
   height: 22px;
-  background: #ffffff;
+  background: var(--color-surface);
   border-left: 1px solid var(--color-line);
   border-right: 1px solid var(--color-line);
 }
@@ -52,4 +146,38 @@ body {
   left: 18px;
   right: 18px;
   border-top: 1px dashed var(--color-line);
+}
+
+/*
+ * Skeletons.
+ *
+ * A pulse rather than a sweep: a sweeping highlight has to know
+ * how wide the thing it is sweeping is, and these are laid out by
+ * the page. Opacity does not care.
+ *
+ * Anyone who has asked for less movement gets a still placeholder
+ * instead of a pulsing one - it still says "something is coming",
+ * which is the whole job.
+ */
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.bone {
+  background: var(--color-line);
+  border-radius: 4px;
+  animation: breathe 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bone {
+    animation: none;
+    opacity: 0.7;
+  }
 }

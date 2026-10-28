@@ -9,6 +9,7 @@ from app.common.enums import (
     TERMINAL_STATUSES,
     DeliverableStatus,
     DeliverableType,
+    RetainerEventKind,
     RetainerRequest,
     RetainerStatus,
     ReviewDecision,
@@ -28,6 +29,10 @@ from app.database.models.retainer_deliverable import (
 from app.database.models.retainer_deliverable_spec import (
     RetainerDeliverableSpec,
 )
+from app.database.models.retainer_assignment import (
+    RetainerAssignment,
+)
+from app.database.models.retainer_event import RetainerEvent
 from app.database.models.retainer_period import RetainerPeriod
 from app.database.repositories.retainer import RetainerRepository
 from app.database.repositories.workspace import WorkspaceRepository
@@ -44,6 +49,31 @@ CREATOR = "creator"
 
 MAX_SPECS = 10
 MAX_QUANTITY_PER_SPEC = 60
+
+# What a request looks like in the history, asked and answered.
+# Two tables rather than one with a branch in it, because asking
+# and agreeing are different lines for a reader: "Nina asked to
+# pause this" and then, later, "TalentX agreed - paused".
+_ASKED = {
+    RetainerRequest.PAUSE: RetainerEventKind.PAUSE_REQUESTED,
+    RetainerRequest.RESUME: RetainerEventKind.RESUME_REQUESTED,
+}
+
+_HAPPENED = {
+    RetainerRequest.PAUSE: RetainerEventKind.PAUSED,
+    RetainerRequest.RESUME: RetainerEventKind.RESUMED,
+}
+
+# Asking for changes and rejecting stay separate: one invites a
+# second attempt, the other closes the deliverable, and a history
+# that blurs them cannot answer why the work stopped.
+_REVIEWED = {
+    ReviewDecision.APPROVE: RetainerEventKind.WORK_APPROVED,
+    ReviewDecision.REQUEST_REVISION: (
+        RetainerEventKind.CHANGES_REQUESTED
+    ),
+    ReviewDecision.REJECT: RetainerEventKind.WORK_REJECTED,
+}
 
 
 class RetainerService:
@@ -271,7 +301,21 @@ class RetainerService:
                 )
             )
 
-        return self.repository.create(retainer)
+        saved = self.repository.create(retainer)
+
+        # After the insert, not before: the id this event points at
+        # does not exist until the row does.
+        self._record(
+            saved,
+            RetainerEventKind.OFFERED,
+            context=context,
+            actor_user_id=current_user_id,
+            side=BRAND,
+            note=message,
+        )
+        self.repository.commit()
+
+        return saved
 
     @staticmethod
     def _validate_deliverables(
@@ -328,6 +372,9 @@ class RetainerService:
         retainers = self.repository.list_for_workspace(
             context.workspace_id,
             statuses,
+            only_assigned_to=self._narrowed_to(
+                context, current_user_id
+            ),
         )
 
         for retainer in retainers:
@@ -401,6 +448,14 @@ class RetainerService:
         if retainer.start_date < today:
             retainer.start_date = today
 
+        self._record(
+            retainer,
+            RetainerEventKind.ACCEPTED,
+            context=context,
+            actor_user_id=current_user_id,
+            side=side,
+        )
+
         saved = self.repository.save(retainer)
         self.ensure_periods(saved)
 
@@ -434,6 +489,15 @@ class RetainerService:
         retainer.responded_at = self._now()
         retainer.ended_reason = reason
 
+        self._record(
+            retainer,
+            RetainerEventKind.DECLINED,
+            context=context,
+            actor_user_id=current_user_id,
+            side=side,
+            note=reason,
+        )
+
         return self.repository.save(retainer)
 
     def cancel(
@@ -463,6 +527,14 @@ class RetainerService:
 
         retainer.status = RetainerStatus.CANCELLED
         retainer.ended_at = self._now()
+
+        self._record(
+            retainer,
+            RetainerEventKind.OFFER_WITHDRAWN,
+            context=context,
+            actor_user_id=current_user_id,
+            side=side,
+        )
 
         return self.repository.save(retainer)
 
@@ -510,6 +582,15 @@ class RetainerService:
         retainer.pending_at = self._now()
         retainer.pending_reason = reason
 
+        self._record(
+            retainer,
+            _ASKED[action],
+            context=context,
+            actor_user_id=current_user_id,
+            side=side,
+            note=reason,
+        )
+
         return self.repository.save(retainer)
 
     def approve_change(
@@ -525,6 +606,17 @@ class RetainerService:
         context.require(WorkspacePermission.MANAGE_RETAINERS)
 
         action = self._pending_for_answer(retainer, side)
+
+        # Recorded before applying, because applying clears the
+        # reason the other side gave and this event carries it.
+        self._record(
+            retainer,
+            _HAPPENED[action],
+            context=context,
+            actor_user_id=current_user_id,
+            side=side,
+            note=retainer.pending_reason,
+        )
 
         if action == RetainerRequest.PAUSE:
             return self._apply_pause(retainer)
@@ -544,6 +636,16 @@ class RetainerService:
         context.require(WorkspacePermission.MANAGE_RETAINERS)
 
         self._pending_for_answer(retainer, side)
+
+        self._record(
+            retainer,
+            RetainerEventKind.REQUEST_REJECTED,
+            context=context,
+            actor_user_id=current_user_id,
+            side=side,
+            note=reason,
+        )
+
         self._clear_pending(retainer)
 
         return self.repository.save(retainer)
@@ -567,6 +669,14 @@ class RetainerService:
             raise PermissionDeniedError(
                 "That request is not yours to withdraw."
             )
+
+        self._record(
+            retainer,
+            RetainerEventKind.REQUEST_WITHDRAWN,
+            context=context,
+            actor_user_id=current_user_id,
+            side=side,
+        )
 
         self._clear_pending(retainer)
 
@@ -684,11 +794,29 @@ class RetainerService:
         # walking away from the whole thing.
         self._clear_pending(retainer)
 
+        self._record(
+            retainer,
+            RetainerEventKind.NOTICE_GIVEN,
+            context=context,
+            actor_user_id=current_user_id,
+            side=side,
+            note=reason,
+            subject=finishes.isoformat(),
+        )
+
         # Zero notice means it is over today, so record that now
         # rather than leaving it to be derived.
         if retainer.notice_period_days == 0:
             retainer.status = RetainerStatus.ENDED
             retainer.ended_at = self._now()
+
+            self._record(
+                retainer,
+                RetainerEventKind.ENDED,
+                context=context,
+                actor_user_id=current_user_id,
+                side=side,
+            )
 
         saved = self.repository.save(retainer)
 
@@ -753,6 +881,16 @@ class RetainerService:
         deliverable.reviewed_at = None
         deliverable.reviewed_by_user_id = None
 
+        self._record(
+            deliverable.period.retainer,
+            RetainerEventKind.WORK_SUBMITTED,
+            context=context,
+            actor_user_id=current_user_id,
+            side=side,
+            note=note,
+            subject=self._deliverable_label(deliverable),
+        )
+
         return self.repository.save_deliverable(deliverable)
 
     def review_deliverable(
@@ -790,6 +928,16 @@ class RetainerService:
         deliverable.reviewed_at = self._now()
         deliverable.reviewed_by_user_id = current_user_id
 
+        self._record(
+            deliverable.period.retainer,
+            _REVIEWED[decision],
+            context=context,
+            actor_user_id=current_user_id,
+            side=side,
+            note=note,
+            subject=self._deliverable_label(deliverable),
+        )
+
         return self.repository.save_deliverable(deliverable)
 
     # ------------------------------------------------------------------
@@ -819,7 +967,42 @@ class RetainerService:
             "You don't have permission to view retainers.",
         )
 
+        # The same rule the list is filtered by, applied to the
+        # single read. Both are needed and they have to agree: a
+        # filtered list with an unguarded detail route is a list
+        # that only looks private, since the ids are guessable
+        # from anywhere else they appear.
+        narrowed = self._narrowed_to(context, current_user_id)
+
+        if narrowed is not None and not self.repository.is_assigned(
+            retainer.id,
+            narrowed,
+        ):
+            # Not found rather than forbidden, for the same reason
+            # as above: "you may not see this one" still tells
+            # somebody it is there.
+            raise NotFoundError("Retainer not found.")
+
         return context, retainer, side
+
+    @staticmethod
+    def _narrowed_to(
+        context: WorkspaceContext,
+        current_user_id: UUID,
+    ) -> UUID | None:
+        """
+        Whose assignments to filter by, or None to see everything.
+
+        Written as a permission the seniors hold rather than as a
+        role check, so a role added later starts out narrow and
+        somebody has to decide to widen it. The failure that
+        matters here is the one where a new role silently sees the
+        whole agency.
+        """
+        if context.allows(WorkspacePermission.VIEW_ALL_RETAINERS):
+            return None
+
+        return current_user_id
 
     def _resolve_deliverable(
         self,
@@ -838,6 +1021,18 @@ class RetainerService:
         if side is None:
             raise NotFoundError("Deliverable not found.")
 
+        # A deliverable is reachable by its own id, so the rule
+        # that hides a retainer has to hide its work too -
+        # otherwise the front door is locked and the window is
+        # open.
+        narrowed = self._narrowed_to(context, current_user_id)
+
+        if narrowed is not None and not self.repository.is_assigned(
+            retainer.id,
+            narrowed,
+        ):
+            raise NotFoundError("Deliverable not found.")
+
         if retainer.status != RetainerStatus.ACTIVE:
             raise ConflictError(
                 "This retainer is not active, so its work cannot "
@@ -845,6 +1040,176 @@ class RetainerService:
             )
 
         return context, deliverable, side
+
+    # ------------------------------------------------------------------
+    # Who runs this account
+    # ------------------------------------------------------------------
+
+    def assignees(
+        self,
+        current_user_id: UUID,
+        retainer_id: UUID,
+    ) -> list[RetainerAssignment]:
+        """Everyone put on this retainer, for anyone who can see it."""
+        self._resolve(current_user_id, retainer_id)
+
+        return self.repository.assignments_for(retainer_id)
+
+    def assign(
+        self,
+        current_user_id: UUID,
+        retainer_id: UUID,
+        user_id: UUID,
+    ) -> list[RetainerAssignment]:
+        """
+        Puts somebody on an account.
+
+        Only the hiring side assigns: a retainer is one agreement
+        but two organisations, and who runs it inside the agency
+        is not the creator's business - nor is the creator's staff
+        the agency's.
+        """
+        context, retainer, side = self._resolve(
+            current_user_id,
+            retainer_id,
+        )
+        context.require(
+            WorkspacePermission.ASSIGN_RETAINERS,
+            "Only the workspace owner and admins decide who runs "
+            "an account.",
+        )
+
+        member = self.member_service.get_active_membership(user_id)
+
+        if member is None or member.workspace_id != context.workspace_id:
+            # Said as "not on your team" rather than "no such
+            # user", because the second one answers a question
+            # nobody asked about who exists elsewhere.
+            raise NotFoundError(
+                "That person is not on your team."
+            )
+
+        existing = self.repository.get_assignment(retainer_id, user_id)
+
+        if existing is not None:
+            # Revived rather than inserted again: the unique
+            # constraint is on the pair, so putting somebody back
+            # on an account they used to run would otherwise
+            # collide with their old row.
+            if existing.deleted_at is None:
+                return self.repository.assignments_for(retainer_id)
+
+            existing.deleted_at = None
+            existing.assigned_by_user_id = current_user_id
+            self.repository.save(existing)
+        else:
+            self.repository.record_assignment(
+                RetainerAssignment(
+                    retainer_id=retainer_id,
+                    user_id=user_id,
+                    assigned_by_user_id=current_user_id,
+                )
+            )
+            self.repository.commit()
+
+        return self.repository.assignments_for(retainer_id)
+
+    def unassign(
+        self,
+        current_user_id: UUID,
+        retainer_id: UUID,
+        user_id: UUID,
+    ) -> list[RetainerAssignment]:
+        """
+        Takes somebody off an account.
+
+        Kept as a soft delete so the record of who used to run
+        this survives - the same reason the history exists. The
+        person loses sight of it either way.
+        """
+        context, _, _ = self._resolve(current_user_id, retainer_id)
+        context.require(
+            WorkspacePermission.ASSIGN_RETAINERS,
+            "Only the workspace owner and admins decide who runs "
+            "an account.",
+        )
+
+        existing = self.repository.get_assignment(retainer_id, user_id)
+
+        if existing is None or existing.deleted_at is not None:
+            raise NotFoundError(
+                "That person is not on this retainer."
+            )
+
+        existing.deleted_at = self._now()
+        self.repository.save(existing)
+
+        return self.repository.assignments_for(retainer_id)
+
+    # ------------------------------------------------------------------
+    # History
+    # ------------------------------------------------------------------
+
+    def _record(
+        self,
+        retainer: Retainer,
+        kind: RetainerEventKind,
+        *,
+        context: WorkspaceContext | None = None,
+        actor_user_id: UUID | None = None,
+        side: str | None = None,
+        note: str | None = None,
+        subject: str | None = None,
+    ) -> RetainerEvent:
+        """
+        Writes one line of history, staged against the change that
+        caused it.
+
+        Called before the save rather than after, so the event and
+        the change it describes are the same transaction. The name
+        is copied in from the workspace as it reads today - see the
+        model for why it is not looked up later.
+        """
+        event = RetainerEvent(
+            retainer_id=retainer.id,
+            kind=kind,
+            actor_user_id=actor_user_id,
+            actor_name=(
+                context.workspace.display_name if context else None
+            ),
+            actor_side=side,
+            note=(note.strip() or None) if note else None,
+            subject=subject,
+        )
+
+        return self.repository.record(event)
+
+    @staticmethod
+    def _deliverable_label(deliverable: RetainerDeliverable) -> str:
+        """
+        "Reel #2" - the same handle the page puts on it, so the
+        history and the month above it name the same thing.
+        """
+        return (
+            f"{deliverable.deliverable_type.value.title()} "
+            f"#{deliverable.position}"
+        )
+
+    def history(
+        self,
+        current_user_id: UUID,
+        retainer_id: UUID,
+    ) -> tuple[list[RetainerEvent], str]:
+        """
+        Everything that has happened, with the side asking.
+
+        The side comes back because the same event is worded two
+        ways - "you asked" against "they asked" - and the caller
+        cannot work that out from the events alone.
+        """
+        _, _, side = self._resolve(current_user_id, retainer_id)
+
+        return self.repository.events_for(retainer_id), side
 
     @staticmethod
     def _side(workspace_id: UUID, retainer: Retainer) -> str | None:

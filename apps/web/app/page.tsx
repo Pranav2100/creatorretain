@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { ThemeToggle } from "@/components/theme-toggle";
 import { getToken } from "@/lib/session";
 import {
   getWorkspaceContext,
@@ -27,18 +28,22 @@ export default async function Home() {
 
   return (
     <>
-      <header className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-5">
+      <header
+        data-theme-host
+        className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-5"
+      >
         <span className="font-display text-[1.15rem] tracking-tight text-ink">
           CreatorRetain
         </span>
 
         <nav className="flex items-center gap-5 text-[14px]">
+          <ThemeToggle />
           <Link href="/login" className="text-muted hover:text-ink">
             Sign in
           </Link>
           <Link
             href="/signup"
-            className="rounded-lg bg-pine px-4 py-2 text-white transition-opacity hover:opacity-90"
+            className="rounded-lg bg-pine px-4 py-2 text-on-pine transition-opacity hover:opacity-90"
           >
             Get started
           </Link>
@@ -61,14 +66,14 @@ export default async function Home() {
           <div className="mt-9 flex flex-wrap items-center gap-4">
             <Link
               href="/signup?as=brand"
-              className="rounded-lg bg-pine px-5 py-3 text-[15px] text-white transition-opacity hover:opacity-90"
+              className="rounded-lg bg-pine px-5 py-3 text-[15px] text-on-pine transition-opacity hover:opacity-90"
             >
               I want to hire creators
             </Link>
 
             <Link
               href="/signup?as=creator"
-              className="rounded-lg border border-line bg-white px-5 py-3 text-[15px] text-ink transition-colors hover:border-pine"
+              className="rounded-lg border border-line bg-surface px-5 py-3 text-[15px] text-ink transition-colors hover:border-pine"
             >
               I&rsquo;m a creator
             </Link>

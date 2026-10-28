@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import { Fraunces, Geist, Geist_Mono } from "next/font/google";
+
+import { ThemeCorner } from "@/components/theme-corner";
+import { themeScript } from "@/lib/theme";
+
 import "./globals.css";
 
 const geistSans = Geist({
@@ -31,9 +35,25 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      // The script below writes data-theme onto this element
+      // before React gets here, so the attribute the browser has
+      // is deliberately not the one the server sent. Without this
+      // React reports that difference as a hydration error.
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <head>
+        {/* Blocking, and first. Anything above it would paint in
+            the wrong theme and be corrected a frame later, which
+            is the flash this exists to avoid. */}
+        <script
+          dangerouslySetInnerHTML={{ __html: themeScript() }}
+        />
+      </head>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <ThemeCorner />
+      </body>
     </html>
   );
 }

@@ -31,6 +31,10 @@ if TYPE_CHECKING:
     from app.database.models.retainer_deliverable_spec import (
         RetainerDeliverableSpec,
     )
+    from app.database.models.retainer_assignment import (
+        RetainerAssignment,
+    )
+    from app.database.models.retainer_event import RetainerEvent
     from app.database.models.retainer_period import RetainerPeriod
     from app.database.models.user import User
     from app.database.models.workspace import Workspace
@@ -237,6 +241,20 @@ class Retainer(Base, TimestampMixin):
         back_populates="retainer",
         cascade="all, delete-orphan",
         order_by="RetainerPeriod.sequence",
+    )
+
+    assignments: Mapped[list["RetainerAssignment"]] = relationship(
+        "RetainerAssignment",
+        back_populates="retainer",
+        cascade="all, delete-orphan",
+    )
+
+    # Newest first, because that is the end a reader starts at.
+    events: Mapped[list["RetainerEvent"]] = relationship(
+        "RetainerEvent",
+        back_populates="retainer",
+        cascade="all, delete-orphan",
+        order_by="RetainerEvent.created_at.desc()",
     )
 
     @property

@@ -111,7 +111,18 @@ def register(email, first="Test", last="User"):
     )
     assert login.status_code == 200, login.text
     token = login.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Accepting an invitation needs a job title and a phone, so
+    # every person here has them unless a check removes them on
+    # purpose. See "the door" section for the gate itself.
+    client.patch(
+        "/auth/me",
+        json={"job_title": "Talent Manager", "phone": "+919876543210"},
+        headers=headers,
+    )
+
+    return headers
 
 
 def pending_invitation_id(headers):
@@ -720,11 +731,116 @@ def main():
     expiry_and_history(alice, bob)
     token_flow(alice)
     email_delivery(alice)
+    the_door(alice)
 
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed")
     for f in FAILED:
         print("  FAILED:", f)
     return 1 if FAILED else 0
+
+
+def the_door(owner):
+    """
+    Nobody joins a workspace without a name a creator can read.
+
+    Whoever joins an agency ends up sending offers in its name,
+    and the creator on the far side is shown who they are and how
+    to reach them. So the details are asked for at the door - the
+    only moment anyone will ever fill them in.
+    """
+    print("\n--- joining needs a job title and a phone ---")
+
+    stranger = register("stranger@test.com", "Stranger")
+
+    # register() fills these in for every other person here.
+    client.patch(
+        "/auth/me",
+        json={"job_title": "", "phone": ""},
+        headers=stranger,
+    )
+
+    client.post(
+        "/workspace-invitations/invite",
+        json={"email": "stranger@test.com", "role": "member"},
+        headers=owner,
+    )
+
+    invitation = pending_invitation_id(stranger)
+
+    check(
+        "without either, joining is refused",
+        client.post(
+            f"/workspace-invitations/{invitation}/accept",
+            headers=stranger,
+        ),
+        409,
+        contains="job title",
+    )
+
+    client.patch(
+        "/auth/me",
+        json={"job_title": "Talent Manager"},
+        headers=stranger,
+    )
+
+    answer = client.post(
+        f"/workspace-invitations/{invitation}/accept",
+        headers=stranger,
+    )
+
+    check(
+        "with only a title, it still is, and says which is missing",
+        answer,
+        409,
+        contains="phone",
+    )
+
+    if "job title" not in answer.text:
+        PASSED.append("the message names only what is missing")
+        print("PASS  the message names only what is missing")
+    else:
+        FAILED.append("the message names only what is missing")
+        print("FAIL  the message names only what is missing")
+        print("        " + answer.text[:200])
+
+    client.patch(
+        "/auth/me",
+        json={"phone": "+919876543210"},
+        headers=stranger,
+    )
+
+    check(
+        "with both, they are let in",
+        client.post(
+            f"/workspace-invitations/{invitation}/accept",
+            headers=stranger,
+        ),
+        200,
+    )
+
+    # Someone who wants no part of a workspace should not have to
+    # fill in a form to say so.
+    refuser = register("refuser@test.com", "Refuser")
+    client.patch(
+        "/auth/me",
+        json={"job_title": "", "phone": ""},
+        headers=refuser,
+    )
+
+    client.post(
+        "/workspace-invitations/invite",
+        json={"email": "refuser@test.com", "role": "member"},
+        headers=owner,
+    )
+
+    check(
+        "but declining needs nothing at all",
+        client.post(
+            f"/workspace-invitations/{pending_invitation_id(refuser)}/decline",
+            headers=refuser,
+        ),
+        200,
+    )
 
 
 if __name__ == "__main__":

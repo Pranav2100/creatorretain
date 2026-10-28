@@ -1,9 +1,11 @@
 import Link from "next/link";
 
 import { Header } from "@/components/header";
+import { Live } from "@/components/live";
 import { listCategories } from "@/lib/discovery";
 import { money, place, reach } from "@/lib/format";
 import { countries, countryName, languages } from "@/lib/places";
+import { getPulse } from "@/lib/pulse";
 import {
   getMyProfile,
   MISSING_LABEL,
@@ -29,9 +31,10 @@ export default async function ProfilePage() {
     "/profile",
   );
 
-  const [profile, categories] = await Promise.all([
+  const [profile, categories, pulse] = await Promise.all([
     getMyProfile(token),
     listCategories(),
+    getPulse(token, { scopes: ["profile"] }),
   ]);
 
   return (
@@ -210,6 +213,10 @@ export default async function ProfilePage() {
           </>
         )}
       </main>
+
+      {/* Two people can hold the same workspace open, and this is
+          a page they both edit. */}
+      <Live scopes={["profile"]} from={pulse} />
     </>
   );
 }

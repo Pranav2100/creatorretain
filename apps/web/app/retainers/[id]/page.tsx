@@ -2,9 +2,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Header } from "@/components/header";
+import { Live } from "@/components/live";
 import { money } from "@/lib/format";
+import { getPulse } from "@/lib/pulse";
+import { listMembers } from "@/lib/team";
+import { canEdit } from "@/lib/workspace";
 import {
   DELIVERABLE_LABEL,
+  getAssignees,
+  getHistory,
   getRetainer,
   STATUS_LABEL,
   type Deliverable,
@@ -20,6 +26,8 @@ import {
   ReviewForm,
   SubmitWorkForm,
 } from "./forms";
+import { Assignees } from "./assignees";
+import { History } from "./history";
 
 const DAY = { day: "numeric", month: "short" } as const;
 
@@ -42,11 +50,28 @@ export default async function RetainerPage(
     `/retainers/${id}`,
   );
 
-  const retainer = await getRetainer(token, id);
+  // All three at once. The pulse is read here, not left to the
+  // first poll, so the watcher knows exactly what this render
+  // was built from - otherwise a change landing in between
+  // becomes the baseline and is never noticed.
+  const [retainer, events, pulse, people] = await Promise.all([
+    getRetainer(token, id),
+    getHistory(token, id),
+    getPulse(token, { scopes: ["retainers"], retainer: id }),
+    getAssignees(token, id),
+  ]);
 
   if (!retainer) {
     notFound();
   }
+
+  // Only fetched for the people who can act on it: the picker
+  // needs colleagues to choose from, and everyone else would be
+  // asking the server for a list they are not shown.
+  const mayAssign =
+    retainer.your_side === "brand" && canEdit(workspace.your_role);
+
+  const team = mayAssign ? await listMembers(token) : [];
 
   const mine = retainer.your_side;
   const other = mine === "brand" ? retainer.creator : retainer.brand;
@@ -126,7 +151,10 @@ export default async function RetainerPage(
             )}
           </div>
 
-          {retainer.ended_reason && (
+          {/* Not while notice is running: the banner below is
+              already quoting this, and the same sentence twice on
+              one screen reads as a mistake rather than emphasis. */}
+          {retainer.ended_reason && !retainer.under_notice && (
             <p className="mt-5 max-w-[56ch] border-l-2 border-line pl-3 text-[14px] leading-relaxed text-muted">
               {retainer.ended_reason}
             </p>
@@ -137,6 +165,10 @@ export default async function RetainerPage(
           <blockquote className="mt-8 max-w-[56ch] border-l-2 border-pine pl-4 text-[16px] leading-relaxed text-ink">
             {retainer.message}
           </blockquote>
+        )}
+
+        {mine === "creator" && retainer.contact && (
+          <ContactBlock contact={retainer.contact} where={other.display_name} />
         )}
 
         {retainer.terms && (
@@ -192,7 +224,27 @@ export default async function RetainerPage(
             . The first month appears then.
           </p>
         )}
+
+        {retainer.your_side === "brand" && (
+          <Assignees
+            retainerId={retainer.id}
+            people={people}
+            team={team ?? []}
+            mayAssign={mayAssign}
+          />
+        )}
+
+        <History events={events} />
       </main>
+
+      {/* Two people act on this page from two browsers. Whoever
+          is not clicking should not have to guess that the other
+          one did. */}
+      <Live
+        scopes={["retainers"]}
+        retainer={retainer.id}
+        from={pulse}
+      />
     </>
   );
 }
@@ -223,7 +275,7 @@ function NoticeBanner({ retainer }: { retainer: RetainerDetail }) {
     : null;
 
   return (
-    <section className="mt-6 rounded-lg border border-line bg-white px-5 py-4">
+    <section className="mt-6 rounded-lg border border-line bg-surface px-5 py-4">
       <p className="text-[15px] leading-relaxed text-ink">
         {who} gave notice. This runs until{" "}
         <span className="tabular-nums">{finishes}</span>, and the
@@ -235,6 +287,57 @@ function NoticeBanner({ retainer }: { retainer: RetainerDetail }) {
           {retainer.ended_reason}
         </p>
       )}
+    </section>
+  );
+}
+
+/**
+ * Who, at the agency, this creator is actually dealing with.
+ *
+ * Shown to the creator only. "TalentX offered you a retainer"
+ * names a company; a creator is deciding whether to work with a
+ * person, and wants to know which one, what they do there, and
+ * how to reach them when something needs sorting out.
+ *
+ * The hiring side is not shown this, because they already know
+ * who sent it - it would be their own name on their own screen.
+ */
+function ContactBlock({
+  contact,
+  where,
+}: {
+  contact: NonNullable<RetainerDetail["contact"]>;
+  where: string;
+}) {
+  return (
+    <section className="mt-8 max-w-[62ch]">
+      <h2 className="text-[13px] text-muted">Your contact</h2>
+
+      <p className="mt-1.5 text-[16px] leading-relaxed text-ink">
+        <span className="font-medium">{contact.name}</span>
+        {contact.job_title && (
+          <span className="text-muted">, {contact.job_title}</span>
+        )}
+        <span className="text-muted"> at {where}</span>
+      </p>
+
+      <p className="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[14px]">
+        <a
+          href={`mailto:${contact.email}`}
+          className="text-pine underline underline-offset-4"
+        >
+          {contact.email}
+        </a>
+
+        {contact.phone && (
+          <a
+            href={`tel:${contact.phone.replace(/\s+/g, "")}`}
+            className="tabular-nums text-pine underline underline-offset-4"
+          >
+            {contact.phone}
+          </a>
+        )}
+      </p>
     </section>
   );
 }

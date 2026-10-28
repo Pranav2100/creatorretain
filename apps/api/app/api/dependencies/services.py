@@ -10,7 +10,11 @@ from app.database.repositories.creator_profile import (
     CreatorProfileRepository,
 )
 from app.database.repositories.brand import BrandRepository
+from app.database.repositories.conversation import (
+    ConversationRepository,
+)
 from app.database.repositories.discovery import DiscoveryRepository
+from app.database.repositories.pulse import PulseRepository
 from app.database.repositories.retainer import RetainerRepository
 from app.database.repositories.workspace_member import (
     WorkspaceMemberRepository,
@@ -23,7 +27,9 @@ from app.services.workspace_invitation import (
 )
 from app.services.brand import BrandService
 from app.services.creator_profile import CreatorProfileService
+from app.services.conversation import ConversationService
 from app.services.discovery import DiscoveryService
+from app.services.pulse import PulseService
 from app.services.retainer import RetainerService
 from app.services.workspace_plan import WorkspacePlanService
 from app.services.workspace_member import WorkspaceMemberService
@@ -104,5 +110,24 @@ def get_retainer_service(
     return RetainerService(
         repository=RetainerRepository(db),
         workspace_repository=WorkspaceRepository(db),
+        member_service=get_workspace_member_service(db),
+    )
+
+
+def get_conversation_service(
+    db: Session = Depends(get_db),
+) -> ConversationService:
+    return ConversationService(
+        repository=ConversationRepository(db),
+        workspace_repository=WorkspaceRepository(db),
+        member_service=get_workspace_member_service(db),
+    )
+
+
+def get_pulse_service(
+    db: Session = Depends(get_db),
+) -> PulseService:
+    return PulseService(
+        repository=PulseRepository(db),
         member_service=get_workspace_member_service(db),
     )

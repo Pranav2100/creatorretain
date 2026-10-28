@@ -93,7 +93,8 @@ class WorkspaceMemberRepository(BaseRepository[WorkspaceMember]):
         role_order = case(
             (self.model.role == WorkspaceRole.OWNER, 0),
             (self.model.role == WorkspaceRole.ADMIN, 1),
-            else_=2,
+            (self.model.role == WorkspaceRole.MANAGER, 2),
+            else_=3,
         )
 
         return (

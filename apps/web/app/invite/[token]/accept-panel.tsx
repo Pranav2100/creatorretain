@@ -4,7 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { storeToken } from "@/app/actions/session";
-import { acceptByToken, login, register } from "@/lib/api";
+import {
+  acceptByToken,
+  login,
+  register,
+  saveJoiningDetails,
+} from "@/lib/api";
 
 type Props = {
   token: string;
@@ -26,6 +31,8 @@ export function AcceptPanel({
   const [lastName, setLastName] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
+  const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -39,6 +46,20 @@ export function AcceptPanel({
 
     if (!password) {
       setError("Enter a password.");
+      return;
+    }
+
+    // Asked for here rather than left to a settings page nobody
+    // visits: a creator weighing up an offer from this workspace
+    // is shown both, so this is the moment they are worth
+    // collecting.
+    if (!jobTitle.trim()) {
+      setError("Enter your job title at this workspace.");
+      return;
+    }
+
+    if (!phone.trim()) {
+      setError("Enter a phone number.");
       return;
     }
 
@@ -61,6 +82,15 @@ export function AcceptPanel({
       }
 
       const accessToken = await login(email, password);
+
+      // Before accepting, not after: the workspace refuses
+      // anyone it cannot introduce to a creator, so saving these
+      // second would mean being turned away holding them.
+      await saveJoiningDetails(accessToken, {
+        job_title: jobTitle.trim(),
+        phone: phone.trim(),
+      });
+
       await acceptByToken(token, accessToken);
 
       // The session lives in an httpOnly cookie rather than
@@ -120,12 +150,34 @@ export function AcceptPanel({
             autoComplete="new-password"
           />
         )}
+
+        <Field
+          label="Your job title here"
+          value={jobTitle}
+          onChange={setJobTitle}
+          autoComplete="organization-title"
+          placeholder="Talent Manager"
+        />
+
+        <Field
+          label="Phone"
+          value={phone}
+          onChange={setPhone}
+          type="tel"
+          autoComplete="tel"
+          placeholder="+91 98765 43210"
+        />
+
+        <p className="pt-1 text-[12px] leading-relaxed text-muted">
+          Creators you work with will see your name, your title and
+          how to reach you on every offer you send.
+        </p>
       </div>
 
       {error && (
         <p
           role="alert"
-          className="mt-4 border-l-2 border-l-[#B4432F] pl-3 text-[13px] leading-relaxed text-[#B4432F]"
+          className="mt-4 border-l-2 border-l-alarm pl-3 text-[13px] leading-relaxed text-alarm"
         >
           {error}
         </p>
@@ -135,7 +187,7 @@ export function AcceptPanel({
         type="button"
         onClick={submit}
         disabled={busy}
-        className="mt-6 w-full rounded-lg bg-pine px-4 py-3 text-[15px] font-medium text-white transition-colors hover:bg-[#24473a] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine disabled:opacity-60"
+        className="mt-6 w-full rounded-lg bg-pine px-4 py-3 text-[15px] font-medium text-on-pine transition-colors hover:bg-pine-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine disabled:opacity-60"
       >
         {busy ? "Joining…" : `Join ${workspace}`}
       </button>
@@ -162,12 +214,14 @@ function Field({
   onChange,
   type = "text",
   autoComplete,
+  placeholder,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   type?: string;
   autoComplete?: string;
+  placeholder?: string;
 }) {
   return (
     <label className="block flex-1">
@@ -176,8 +230,9 @@ function Field({
         type={type}
         value={value}
         autoComplete={autoComplete}
+        placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-[15px] text-ink outline-none transition-colors focus:border-pine focus:bg-white"
+        className="w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-[15px] text-ink outline-none transition-colors focus:border-pine focus:bg-surface"
       />
     </label>
   );

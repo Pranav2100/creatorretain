@@ -7,6 +7,7 @@ from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
 from app.common.enums import (
     DeliverableStatus,
     DeliverableType,
+    RetainerEventKind,
     RetainerRequest,
     RetainerStatus,
     ReviewDecision,
@@ -16,6 +17,7 @@ from app.database.models.retainer import Retainer
 from app.database.models.retainer_deliverable import (
     RetainerDeliverable,
 )
+from app.database.models.retainer_event import RetainerEvent
 from app.database.models.retainer_period import RetainerPeriod
 
 
@@ -154,6 +156,27 @@ class RetainerParty(BaseModel):
     display_name: str
 
 
+class Contact(BaseModel):
+    """
+    The person at the hiring end, rather than the company.
+
+    A creator weighing up an offer is deciding whether to work
+    with someone, and "TalentX" is not someone. This is who sent
+    it, what they do there, and how to reach them - the
+    difference between a letter from a company and a letter from
+    a person at one.
+
+    Null for a retainer offered before this existed, and for one
+    whose sender has since left: the agreement outlives the
+    employee, so the page has to read sensibly without them.
+    """
+
+    name: str
+    job_title: str | None
+    email: str
+    phone: str | None
+
+
 class PendingChange(BaseModel):
     """
     A change one side has asked for and the other has not answered.
@@ -247,6 +270,11 @@ class RetainerDetail(BaseModel):
     message: str | None
     brand: RetainerParty
     creator: RetainerParty
+
+    # Only ever the hiring side's person. The creator is the other
+    # party to the agreement, not a contact to be listed.
+    contact: Contact | None
+
     your_side: str
     specs: list[DeliverableSpecResponse]
     periods: list[PeriodResponse]
@@ -295,6 +323,7 @@ class RetainerDetail(BaseModel):
             message=retainer.message,
             brand=_party(retainer.brand_workspace),
             creator=_party(retainer.creator_workspace),
+            contact=_contact(retainer.created_by),
             your_side=side,
             specs=[
                 DeliverableSpecResponse.model_validate(spec)
@@ -315,6 +344,99 @@ class RetainerDetail(BaseModel):
             notice_given_by_side=retainer.notice_given_by_side,
             created_at=retainer.created_at,
         )
+
+
+class EventResponse(BaseModel):
+    """
+    One line of history, as facts rather than as a sentence.
+
+    The wording is left to the reader's side, because the same
+    event reads differently depending on who is looking at it -
+    "you asked to pause this" against "Nina Cooks asked to pause
+    this" - and a sentence baked in here would have to be one or
+    the other.
+    """
+
+    id: UUID
+    kind: RetainerEventKind
+    at: datetime
+
+    # The workspace, as it read on the day.
+    actor_name: str | None
+
+    # The human being, looked up live rather than copied.
+    #
+    # The workspace name is frozen at the time because renaming a
+    # company should not rewrite what it did; a person's name is
+    # not, because someone who corrects their own surname means it
+    # retrospectively. Null once they have left and the row's
+    # reference to them has been cleared.
+    actor_person: str | None
+
+    actor_side: str | None
+    yours: bool
+    note: str | None
+    subject: str | None
+    about_work: bool
+
+    @classmethod
+    def from_event(
+        cls,
+        event: RetainerEvent,
+        side: str,
+    ) -> "EventResponse":
+        return cls(
+            id=event.id,
+            kind=event.kind,
+            at=event.created_at,
+            actor_name=event.actor_name,
+            actor_person=(
+                f"{event.actor.first_name} {event.actor.last_name}".strip()
+                if event.actor is not None
+                else None
+            ),
+            actor_side=event.actor_side,
+            yours=event.actor_side == side,
+            note=event.note,
+            subject=event.subject,
+            about_work=event.kind.is_about_work,
+        )
+
+
+class AssignRequest(BaseModel):
+    user_id: UUID
+
+
+class Assignee(BaseModel):
+    """Someone inside the hiring workspace who runs this account."""
+
+    user_id: UUID
+    name: str
+    job_title: str | None
+    email: str
+    assigned_at: datetime
+
+    @classmethod
+    def from_assignment(cls, assignment) -> "Assignee":
+        user = assignment.user
+
+        return cls(
+            user_id=user.id,
+            name=f"{user.first_name} {user.last_name}".strip(),
+            job_title=user.job_title,
+            email=user.email,
+            assigned_at=assignment.created_at,
+        )
+
+
+class AssigneeListResponse(BaseModel):
+    assignees: list[Assignee]
+    total: int
+
+
+class EventListResponse(BaseModel):
+    events: list[EventResponse]
+    total: int
 
 
 class RetainerListResponse(BaseModel):
@@ -342,6 +464,18 @@ def _party(workspace) -> RetainerParty:
         workspace_id=workspace.id,
         slug=workspace.slug,
         display_name=workspace.display_name,
+    )
+
+
+def _contact(user) -> Contact | None:
+    if user is None:
+        return None
+
+    return Contact(
+        name=f"{user.first_name} {user.last_name}".strip(),
+        job_title=user.job_title,
+        email=user.email,
+        phone=user.phone,
     )
 
 

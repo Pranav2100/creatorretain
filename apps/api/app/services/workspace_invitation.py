@@ -327,6 +327,10 @@ class WorkspaceInvitationService:
         invitation: WorkspaceInvitation,
         current_user_id: UUID,
     ) -> WorkspaceInvitation:
+        # Both ways in - by id and by link - come through here, so
+        # the gate is written once rather than twice.
+        self._require_contactable(current_user_id)
+
         existing_membership = (
             self.member_repository.get_active_membership(
                 current_user_id,
@@ -363,6 +367,38 @@ class WorkspaceInvitationService:
             self.invitation_repository.save(pending)
 
         return invitation
+
+    def _require_contactable(self, current_user_id: UUID) -> None:
+        """
+        Nobody joins a workspace anonymously.
+
+        Whoever joins an agency will end up sending offers to
+        creators in that agency's name, and a creator deciding
+        whether to take one should see who is behind it and be
+        able to reach them. So the details that get shown are
+        asked for at the door, rather than left optional forever
+        and filled in by nobody.
+
+        Declining needs none of this. Someone who wants no part of
+        a workspace should not have to fill in a form to say so.
+        """
+        user = self._get_user(current_user_id)
+
+        missing = []
+
+        if not (user.job_title or "").strip():
+            missing.append("a job title")
+
+        if not (user.phone or "").strip():
+            missing.append("a phone number")
+
+        if missing:
+            raise ConflictError(
+                "Add "
+                + " and ".join(missing)
+                + " to your account before joining. The creators "
+                "you work with will see this."
+            )
 
     def decline_invitation(
         self,

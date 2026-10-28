@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { ApiError } from "@/lib/api";
 import type { FormState } from "@/lib/forms";
@@ -9,6 +10,7 @@ import {
   cancelInvitation,
   changeRole,
   inviteMember,
+  leaveWorkspace as leave,
   removeLogo,
   removeMember,
   resendInvitation,
@@ -149,4 +151,29 @@ export async function sendAgain(
       String(formData.get("invitation_id") ?? ""),
     ),
   );
+}
+
+
+export async function leaveWorkspace(
+  _previous: FormState,
+): Promise<FormState> {
+  const token = await requireToken("/account");
+
+  try {
+    await leave(token);
+  } catch (caught) {
+    if (caught instanceof ApiError) {
+      return { error: caught.message };
+    }
+
+    return {
+      error: "Could not reach the server. Is the API running?",
+    };
+  }
+
+  // Still signed in, but with nothing to act for. Setup is the
+  // only page that works from here, and landing on a settings
+  // screen for a workspace you just left would be worse than
+  // being sent somewhere honest.
+  redirect("/setup");
 }

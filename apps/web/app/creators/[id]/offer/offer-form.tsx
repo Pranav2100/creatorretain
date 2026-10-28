@@ -60,7 +60,7 @@ export function OfferForm({
           defaultValue={suggestedTitle}
           maxLength={120}
           required
-          className="w-full rounded-lg border border-line bg-white px-3 py-2.5 text-[15px] text-ink outline-none focus:border-pine"
+          className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-[15px] text-ink outline-none focus:border-pine"
         />
       </label>
 
@@ -77,7 +77,7 @@ export function OfferForm({
             suggestedAmount ? Math.round(Number(suggestedAmount)) : ""
           }
           required
-          className="w-full rounded-lg border border-line bg-white px-3 py-2.5 text-[15px] tabular-nums text-ink outline-none focus:border-pine"
+          className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-[15px] tabular-nums text-ink outline-none focus:border-pine"
         />
         <span className="mt-1 block text-[12px] text-muted">
           {currency}, before any platform fee
@@ -101,7 +101,7 @@ export function OfferForm({
                 min={0}
                 max={60}
                 placeholder="0"
-                className="w-full rounded-lg border border-line bg-white px-2.5 py-2 text-[15px] tabular-nums text-ink outline-none placeholder:text-muted/60 focus:border-pine"
+                className="w-full rounded-lg border border-line bg-surface px-2.5 py-2 text-[15px] tabular-nums text-ink outline-none placeholder:text-muted focus:border-pine"
               />
             </label>
           ))}
@@ -125,7 +125,7 @@ export function OfferForm({
             `tone is right for our client. Happy to talk the brief ` +
             `through before you decide.`
           }
-          className="w-full resize-y rounded-lg border border-line bg-white px-3 py-2.5 text-[15px] leading-relaxed text-ink outline-none placeholder:text-muted/60 focus:border-pine"
+          className="w-full resize-y rounded-lg border border-line bg-surface px-3 py-2.5 text-[15px] leading-relaxed text-ink outline-none placeholder:text-muted focus:border-pine"
         />
       </label>
 
@@ -140,7 +140,7 @@ export function OfferForm({
             "Drafts by the 20th, paid within seven days of the " +
             "month ending, usage limited to our own channels."
           }
-          className="w-full resize-y rounded-lg border border-line bg-white px-3 py-2.5 text-[15px] leading-relaxed text-ink outline-none placeholder:text-muted/60 focus:border-pine"
+          className="w-full resize-y rounded-lg border border-line bg-surface px-3 py-2.5 text-[15px] leading-relaxed text-ink outline-none placeholder:text-muted focus:border-pine"
         />
       </label>
 
@@ -154,7 +154,7 @@ export function OfferForm({
           min={0}
           max={180}
           defaultValue={30}
-          className="w-full rounded-lg border border-line bg-white px-3 py-2.5 text-[15px] tabular-nums text-ink outline-none focus:border-pine"
+          className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-[15px] tabular-nums text-ink outline-none focus:border-pine"
         />
         <span className="mt-1 block text-[12px] text-muted">
           days
@@ -174,7 +174,7 @@ export function OfferForm({
         <button
           type="submit"
           disabled={pending}
-          className="rounded-lg bg-pine px-5 py-3 text-[15px] text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+          className="rounded-lg bg-pine px-5 py-3 text-[15px] text-on-pine transition-opacity hover:opacity-90 disabled:opacity-60"
         >
           {pending ? "Sending" : `Send to ${creatorName}`}
         </button>

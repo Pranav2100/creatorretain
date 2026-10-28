@@ -14,18 +14,23 @@ import {
 } from "@/app/actions/workspace";
 import { noError } from "@/lib/forms";
 import type { Member, SentInvitation } from "@/lib/team";
-import type { WorkspaceSummary } from "@/lib/workspace";
+import {
+  RANK,
+  ROLE_LABEL,
+  type WorkspaceRole,
+  type WorkspaceSummary,
+} from "@/lib/workspace";
 
 const field =
-  "rounded-lg border border-line bg-white px-3 py-2.5 text-[15px] text-ink outline-none placeholder:text-muted/60 focus:border-pine";
+  "rounded-lg border border-line bg-surface px-3 py-2.5 text-[15px] text-ink outline-none placeholder:text-muted focus:border-pine";
 
 const input = `w-full ${field}`;
 
 const quiet =
-  "rounded-lg border border-line bg-white px-4 py-2.5 text-[14px] text-ink transition-colors hover:border-pine disabled:opacity-60";
+  "rounded-lg border border-line bg-surface px-4 py-2.5 text-[14px] text-ink transition-colors hover:border-pine disabled:opacity-60";
 
 const loud =
-  "rounded-lg bg-pine px-5 py-2.5 text-[14px] text-white transition-opacity hover:opacity-90 disabled:opacity-60";
+  "rounded-lg bg-pine px-5 py-2.5 text-[14px] text-on-pine transition-opacity hover:opacity-90 disabled:opacity-60";
 
 function Error({ message }: { message: string | null }) {
   if (!message) return null;
@@ -321,8 +326,9 @@ export function InviteForm() {
           <span className="mb-1.5 block text-[13px] text-muted">
             As
           </span>
-          <select name="role" defaultValue="member" className={input}>
+          <select name="role" defaultValue="manager" className={input}>
             <option value="member">Member</option>
+            <option value="manager">Manager</option>
             <option value="admin">Admin</option>
           </select>
         </label>
@@ -332,10 +338,32 @@ export function InviteForm() {
         </button>
       </div>
 
-      <p className="mt-3 max-w-[58ch] text-[13px] leading-relaxed text-muted">
-        Admins can sign retainers, invite people and edit this page.
-        Members can see the work and the money, and change neither.
-      </p>
+      {/* Three sentences for three roles, in the order someone
+          reads them when deciding which to pick. */}
+      <dl className="mt-3 max-w-[60ch] space-y-1.5 text-[13px] leading-relaxed">
+        <div>
+          <dt className="inline text-ink">Admin.</dt>{" "}
+          <dd className="inline text-muted">
+            Everything you can do, except handing the workspace on
+            and paying for it.
+          </dd>
+        </div>
+        <div>
+          <dt className="inline text-ink">Manager.</dt>{" "}
+          <dd className="inline text-muted">
+            Runs the accounts you put them on — offers, pauses,
+            reviewing work — and sees only those. Cannot invite,
+            remove, or edit this page.
+          </dd>
+        </div>
+        <div>
+          <dt className="inline text-ink">Member.</dt>{" "}
+          <dd className="inline text-muted">
+            Sees every retainer and what is due, and changes
+            nothing.
+          </dd>
+        </div>
+      </dl>
 
       <Error message={state.error} />
     </form>
@@ -360,14 +388,15 @@ export function MemberRow({
     noError,
   );
 
-  // The owner is not demotable or removable, and nobody edits
-  // themselves here. Admins may only act on members.
+  // You can act on people below you, and nobody else. The owner
+  // is nobody's junior, and nobody edits themselves here. Written
+  // as one comparison rather than a list of pairs, so a fourth
+  // role did not mean a fourth branch.
   const owner = member.role === "owner";
   const mayAct =
     !owner &&
     !isYou &&
-    (viewerRole === "owner" ||
-      (viewerRole === "admin" && member.role === "member"));
+    RANK[viewerRole as WorkspaceRole] > RANK[member.role];
 
   return (
     <li className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-b border-line py-3">
@@ -396,15 +425,16 @@ export function MemberRow({
               onChange={(event) =>
                 event.currentTarget.form?.requestSubmit()
               }
-              className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-[13px] text-ink outline-none focus:border-pine disabled:opacity-60"
+              className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-[13px] text-ink outline-none focus:border-pine disabled:opacity-60"
             >
               <option value="member">Member</option>
+              <option value="manager">Manager</option>
               <option value="admin">Admin</option>
             </select>
           </form>
         ) : (
-          <span className="text-[13px] capitalize text-muted">
-            {member.role}
+          <span className="text-[13px] text-muted">
+            {ROLE_LABEL[member.role]}
           </span>
         )}
 
@@ -453,8 +483,8 @@ export function InvitationRow({
     <li className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-b border-line py-3">
       <span className="min-w-0 text-[15px] text-ink">
         {invitation.email}
-        <span className="ml-2 text-[13px] capitalize text-muted">
-          {invitation.role}
+        <span className="ml-2 text-[13px] text-muted">
+          {ROLE_LABEL[invitation.role]}
         </span>
       </span>
 

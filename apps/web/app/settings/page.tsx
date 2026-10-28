@@ -1,7 +1,9 @@
 import Link from "next/link";
 
 import { Header } from "@/components/header";
+import { Live } from "@/components/live";
 import { API_URL } from "@/lib/api";
+import { getPulse } from "@/lib/pulse";
 import { listMembers, listSentInvitations } from "@/lib/team";
 import { requireWorkspace } from "@/lib/session";
 import { canEdit } from "@/lib/workspace";
@@ -41,10 +43,11 @@ export default async function SettingsPage() {
 
   const editable = canEdit(workspace.your_role);
 
-  const [members, invitations, userId] = await Promise.all([
+  const [members, invitations, userId, pulse] = await Promise.all([
     listMembers(token),
     listSentInvitations(token),
     whoAmI(token),
+    getPulse(token, { scopes: ["workspace"] }),
   ]);
 
   const pending = (invitations ?? []).filter(
@@ -172,6 +175,10 @@ export default async function SettingsPage() {
           )}
         </Section>
       </main>
+
+      {/* An invitation accepted in someone else's browser should
+          appear here without anyone reloading to find out. */}
+      <Live scopes={["workspace"]} from={pulse} />
     </>
   );
 }

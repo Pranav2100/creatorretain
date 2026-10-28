@@ -18,12 +18,22 @@ class WorkspacePermission(StrEnum):
     DELETE_WORKSPACE = "delete_workspace"
     LEAVE_WORKSPACE = "leave_workspace"
 
-    # Signing a retainer commits the workspace to paying money every
-    # month, so it sits with the Owner and Admins. Reading one does
-    # not - a Member running the account needs to know what was
-    # agreed and what is due.
+    # Signing a retainer commits the workspace to paying money
+    # every month. Reading one does not, and a Member kept in the
+    # loop needs to know what was agreed and what is due.
     VIEW_RETAINERS = "view_retainers"
     MANAGE_RETAINERS = "manage_retainers"
+
+    # Deciding who runs which account. Separate from managing the
+    # retainer itself, because the person who runs an account and
+    # the person who decides who runs it are different jobs.
+    ASSIGN_RETAINERS = "assign_retainers"
+
+    # Whether this role sees the whole workspace's retainers or
+    # only the ones put in their hands. Held by the seniors rather
+    # than checked as an absence, so a new role added later is
+    # narrow until someone decides otherwise.
+    VIEW_ALL_RETAINERS = "view_all_retainers"
 
 
 ROLE_PERMISSIONS: dict[WorkspaceRole, frozenset[WorkspacePermission]] = {
@@ -39,7 +49,9 @@ ROLE_PERMISSIONS: dict[WorkspaceRole, frozenset[WorkspacePermission]] = {
             WorkspacePermission.MANAGE_BILLING,
             WorkspacePermission.DELETE_WORKSPACE,
             WorkspacePermission.VIEW_RETAINERS,
+            WorkspacePermission.VIEW_ALL_RETAINERS,
             WorkspacePermission.MANAGE_RETAINERS,
+            WorkspacePermission.ASSIGN_RETAINERS,
         }
     ),
     WorkspaceRole.ADMIN: frozenset(
@@ -52,6 +64,23 @@ ROLE_PERMISSIONS: dict[WorkspaceRole, frozenset[WorkspacePermission]] = {
             WorkspacePermission.CHANGE_ROLES,
             WorkspacePermission.LEAVE_WORKSPACE,
             WorkspacePermission.VIEW_RETAINERS,
+            WorkspacePermission.VIEW_ALL_RETAINERS,
+            WorkspacePermission.MANAGE_RETAINERS,
+            WorkspacePermission.ASSIGN_RETAINERS,
+        }
+    ),
+    # The person who runs accounts. Everything a retainer needs -
+    # offering, pausing, reviewing the work - and nothing about
+    # the company: no inviting, no removing, no rewriting the page
+    # creators read. Sees only the retainers put in their hands,
+    # which is the whole point of the role: an agency with forty
+    # creators does not want each manager wading through all of
+    # them to find their three.
+    WorkspaceRole.MANAGER: frozenset(
+        {
+            WorkspacePermission.LEAVE_WORKSPACE,
+            WorkspacePermission.VIEW_MEMBERS,
+            WorkspacePermission.VIEW_RETAINERS,
             WorkspacePermission.MANAGE_RETAINERS,
         }
     ),
@@ -59,6 +88,7 @@ ROLE_PERMISSIONS: dict[WorkspaceRole, frozenset[WorkspacePermission]] = {
         {
             WorkspacePermission.LEAVE_WORKSPACE,
             WorkspacePermission.VIEW_RETAINERS,
+            WorkspacePermission.VIEW_ALL_RETAINERS,
         }
     ),
 }
@@ -76,20 +106,17 @@ def can_remove_member(
     target_role: WorkspaceRole,
 ) -> bool:
     """
-    The Owner can remove Admins and Members.
-    Admins can only remove regular Members.
-    Nobody can remove the Owner.
+    You can remove people below you, and nobody else.
+
+    Which keeps the two rules that matter however many roles
+    there turn out to be: an Admin cannot remove another Admin,
+    and nobody removes the Owner. An Owner leaves by handing the
+    workspace on, not by being voted out of it.
     """
     if target_role == WorkspaceRole.OWNER:
         return False
 
-    if actor_role == WorkspaceRole.OWNER:
-        return True
-
-    if actor_role == WorkspaceRole.ADMIN:
-        return target_role == WorkspaceRole.MEMBER
-
-    return False
+    return actor_role.outranks(target_role)
 
 
 def can_change_role(
@@ -98,20 +125,22 @@ def can_change_role(
     new_role: WorkspaceRole,
 ) -> bool:
     """
-    The Owner can promote Members and demote Admins.
-    Admins can only promote Members to Admin.
-    The Owner's role is only changed through ownership transfer.
+    You can change people below you, to anything up to your own
+    level.
+
+    Up to and including: an Admin promoting someone to Admin is
+    ordinary delegation, and refusing it would leave only the
+    Owner able to grow the team. What an Admin cannot do is touch
+    another Admin, in either direction - and that falls out of
+    the first half of the rule rather than needing its own.
+
+    Ownership is not a role anyone is promoted into. It moves by
+    transfer, which is a different operation with its own
+    confirmation.
     """
     if WorkspaceRole.OWNER in (target_role, new_role):
         return False
 
-    if actor_role == WorkspaceRole.OWNER:
-        return True
-
-    if actor_role == WorkspaceRole.ADMIN:
-        return (
-            target_role == WorkspaceRole.MEMBER
-            and new_role == WorkspaceRole.ADMIN
-        )
-
-    return False
+    return actor_role.outranks(target_role) and (
+        actor_role.rank >= new_role.rank
+    )

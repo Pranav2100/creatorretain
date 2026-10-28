@@ -8,11 +8,16 @@ from app.api.errors import http_error
 from app.common.enums import RetainerStatus
 from app.database.models.user import User
 from app.schemas.retainer import (
+    AssigneeListResponse,
+    Assignee,
+    AssignRequest,
     ChangeRequestBody,
     CreateRetainerRequest,
     DeclineRequest,
     DeliverableResponse,
     EndRetainerRequest,
+    EventListResponse,
+    EventResponse,
     PauseRequest,
     PeriodListResponse,
     PeriodResponse,
@@ -135,6 +140,115 @@ def get_retainer(
         side,
         service.clock(),
     )
+
+    except ValueError as e:
+        raise http_error(e)
+
+
+@router.get(
+    "/{retainer_id}/assignees",
+    response_model=AssigneeListResponse,
+    summary="Who runs this account",
+)
+def list_assignees(
+    retainer_id: UUID,
+    current_user: User = Depends(get_current_user),
+    service: RetainerService = Depends(get_retainer_service),
+):
+    try:
+        people = service.assignees(current_user.id, retainer_id)
+
+        return AssigneeListResponse(
+            assignees=[
+                Assignee.from_assignment(a) for a in people
+            ],
+            total=len(people),
+        )
+
+    except ValueError as e:
+        raise http_error(e)
+
+
+@router.post(
+    "/{retainer_id}/assignees",
+    response_model=AssigneeListResponse,
+    responses=PLAN_OR_PERMISSION,
+    summary="Put someone on this account",
+)
+def add_assignee(
+    retainer_id: UUID,
+    payload: AssignRequest,
+    current_user: User = Depends(get_current_user),
+    service: RetainerService = Depends(get_retainer_service),
+):
+    try:
+        people = service.assign(
+            current_user.id,
+            retainer_id,
+            payload.user_id,
+        )
+
+        return AssigneeListResponse(
+            assignees=[
+                Assignee.from_assignment(a) for a in people
+            ],
+            total=len(people),
+        )
+
+    except ValueError as e:
+        raise http_error(e)
+
+
+@router.delete(
+    "/{retainer_id}/assignees/{user_id}",
+    response_model=AssigneeListResponse,
+    responses=PLAN_OR_PERMISSION,
+    summary="Take someone off this account",
+)
+def remove_assignee(
+    retainer_id: UUID,
+    user_id: UUID,
+    current_user: User = Depends(get_current_user),
+    service: RetainerService = Depends(get_retainer_service),
+):
+    try:
+        people = service.unassign(
+            current_user.id,
+            retainer_id,
+            user_id,
+        )
+
+        return AssigneeListResponse(
+            assignees=[
+                Assignee.from_assignment(a) for a in people
+            ],
+            total=len(people),
+        )
+
+    except ValueError as e:
+        raise http_error(e)
+
+
+@router.get(
+    "/{retainer_id}/history",
+    response_model=EventListResponse,
+    summary="Everything that has happened to this retainer",
+)
+def list_history(
+    retainer_id: UUID,
+    current_user: User = Depends(get_current_user),
+    service: RetainerService = Depends(get_retainer_service),
+):
+    try:
+        events, side = service.history(current_user.id, retainer_id)
+
+        return EventListResponse(
+            events=[
+                EventResponse.from_event(event, side)
+                for event in events
+            ],
+            total=len(events),
+        )
 
     except ValueError as e:
         raise http_error(e)

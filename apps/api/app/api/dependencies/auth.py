@@ -36,6 +36,17 @@ def get_current_user(
                 detail="User not found",
             )
 
+        # A token from before the password changed is not a
+        # session any more. Tokens minted before this field
+        # existed carry no "ver" at all and read as generation
+        # zero, which is where every existing user starts - so
+        # nobody is signed out by the upgrade itself.
+        if payload.get("ver", 0) != user.token_version:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Your password changed. Sign in again.",
+            )
+
         return user
 
     except JWTError:

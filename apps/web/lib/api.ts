@@ -112,6 +112,30 @@ export async function register(input: {
   }
 }
 
+/**
+ * Saves the details a workspace will not let anyone in without.
+ *
+ * Here rather than in lib/account.ts because this one is called
+ * from the invitation page, which runs in the browser; that file
+ * is only ever reached from the server, where the session cookie
+ * lives.
+ */
+export async function saveJoiningDetails(
+  accessToken: string,
+  details: { job_title: string; phone: string },
+): Promise<void> {
+  const response = await fetch(`${API_URL}/auth/me`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(details),
+  });
+
+  await parse(response);
+}
+
 export async function acceptByToken(
   token: string,
   accessToken: string,

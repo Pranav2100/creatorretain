@@ -88,6 +88,16 @@ class WorkspaceContext:
                 or "You don't have permission to perform this action."
             )
 
+    def allows(self, permission: WorkspacePermission) -> bool:
+        """
+        The same question as `require`, asked without raising.
+
+        For the places that branch on a permission rather than
+        refuse on it - narrowing a list to what this person runs,
+        say, instead of turning them away from the page.
+        """
+        return has_permission(self.role, permission)
+
     def can(self, capability: Capability) -> bool:
         return has_capability(
             self.workspace.workspace_type,

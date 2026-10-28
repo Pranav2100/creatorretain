@@ -71,8 +71,8 @@ export function SetupForm({ initialKind }: { initialKind: string }) {
               key={option.value}
               className={`block cursor-pointer rounded-lg border px-4 py-3 transition-colors ${
                 kind === option.value
-                  ? "border-pine bg-white"
-                  : "border-line hover:bg-white/60"
+                  ? "border-pine bg-surface"
+                  : "border-line hover:bg-surface/60"
               }`}
             >
               <input
@@ -109,7 +109,7 @@ export function SetupForm({ initialKind }: { initialKind: string }) {
           placeholder={
             kind === "creator" ? "Nina Cooks" : "TalentX Media"
           }
-          className="w-full rounded-lg border border-line bg-white px-3 py-2.5 text-[15px] text-ink outline-none placeholder:text-muted/60 focus:border-pine"
+          className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-[15px] text-ink outline-none placeholder:text-muted focus:border-pine"
         />
       </label>
 
@@ -128,7 +128,7 @@ export function SetupForm({ initialKind }: { initialKind: string }) {
           minLength={3}
           maxLength={30}
           placeholder={kind === "creator" ? "ninacooks" : "talentx"}
-          className="w-full rounded-lg border border-line bg-white px-3 py-2.5 text-[15px] text-ink outline-none placeholder:text-muted/60 focus:border-pine"
+          className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-[15px] text-ink outline-none placeholder:text-muted focus:border-pine"
         />
 
         {check && handle.length >= 3 && (
@@ -181,7 +181,7 @@ export function SetupForm({ initialKind }: { initialKind: string }) {
             name="legal_name"
             maxLength={200}
             placeholder="TalentX Media Private Limited"
-            className="w-full rounded-lg border border-line bg-white px-3 py-2.5 text-[15px] text-ink outline-none placeholder:text-muted/60 focus:border-pine"
+            className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-[15px] text-ink outline-none placeholder:text-muted focus:border-pine"
           />
         </label>
       )}
@@ -198,7 +198,7 @@ export function SetupForm({ initialKind }: { initialKind: string }) {
       <button
         type="submit"
         disabled={pending || check?.available === false}
-        className="mt-6 w-full rounded-lg bg-pine py-3 text-[15px] text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+        className="mt-6 w-full rounded-lg bg-pine py-3 text-[15px] text-on-pine transition-opacity hover:opacity-90 disabled:opacity-60"
       >
         {pending ? "Setting up" : "Create workspace"}
       </button>

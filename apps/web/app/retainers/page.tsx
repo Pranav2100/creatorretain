@@ -1,7 +1,9 @@
 import Link from "next/link";
 
 import { Header } from "@/components/header";
+import { Live } from "@/components/live";
 import { money } from "@/lib/format";
+import { getPulse } from "@/lib/pulse";
 import {
   listRetainers,
   STATUS_LABEL,
@@ -28,7 +30,10 @@ export default async function RetainersPage() {
     "/retainers",
   );
 
-  const { retainers } = await listRetainers(token);
+  const [{ retainers }, pulse] = await Promise.all([
+    listRetainers(token),
+    getPulse(token, { scopes: ["retainers"] }),
+  ]);
 
   const sorted = [...retainers].sort(
     (a, b) =>
@@ -74,6 +79,10 @@ export default async function RetainersPage() {
           </ol>
         )}
       </main>
+
+      {/* No id: this list cares about anything happening on any
+          of them, which is what "Waiting on your answer" is for. */}
+      <Live scopes={["retainers"]} from={pulse} />
     </>
   );
 }
@@ -89,7 +98,7 @@ function Row({ retainer }: { retainer: RetainerSummary }) {
     <li className="border-b border-line first:border-t">
       <Link
         href={`/retainers/${retainer.id}`}
-        className="group flex items-baseline gap-4 py-5 outline-none focus-visible:bg-white"
+        className="group flex items-baseline gap-4 py-5 outline-none focus-visible:bg-surface"
       >
         <div className="min-w-0 flex-1">
           <h2 className="font-display text-[1.35rem] leading-tight tracking-tight text-ink group-hover:underline group-hover:decoration-line group-hover:underline-offset-[6px]">

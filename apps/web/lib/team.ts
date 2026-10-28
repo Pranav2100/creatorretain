@@ -165,6 +165,24 @@ export async function removeMember(
   await body(response);
 }
 
+/**
+ * Walks away from a workspace you were invited into.
+ *
+ * Not reversible from this side: getting back in needs a fresh
+ * invitation from someone still inside. The API refuses it for an
+ * owner, who has to hand the workspace on first.
+ */
+export async function leaveWorkspace(token: string): Promise<void> {
+  const response = await fetch(
+    `${API_URL}/workspace-members/leave`,
+    { method: "POST", headers: headers(token) },
+  );
+
+  if (response.status === 204) return;
+
+  await body(response);
+}
+
 export async function saveWorkspace(
   token: string,
   payload: Record<string, unknown>,

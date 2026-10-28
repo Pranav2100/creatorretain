@@ -1,6 +1,11 @@
 import { redirect } from "next/navigation";
 
 import { getToken } from "@/lib/session";
+import {
+  getWorkspaceContext,
+  landingFor,
+  NO_WORKSPACE,
+} from "@/lib/workspace";
 
 import { LoginForm } from "./login-form";
 
@@ -9,10 +14,25 @@ export const metadata = { title: "Sign in · CreatorRetain" };
 export default async function LoginPage(
   props: PageProps<"/login">,
 ) {
-  // "/" works out where this workspace belongs, so an already
-  // signed-in creator is not sent to the creator list either.
-  if (await getToken()) {
-    redirect("/");
+  const token = await getToken();
+
+  // Whether the cookie still works, not merely whether there is
+  // one. Holding a dead token used to bounce people to "/", which
+  // shows the marketing page to anyone it cannot identify - so
+  // being signed out led to an advert, and the Sign in link on it
+  // led back here, round and round until the cookie expired. A
+  // password changed in another browser leaves exactly that
+  // cookie behind, which is how this was found.
+  if (token) {
+    const context = await getWorkspaceContext(token);
+
+    if (context === NO_WORKSPACE) {
+      redirect("/setup");
+    }
+
+    if (context) {
+      redirect(landingFor(context.plan));
+    }
   }
 
   const params = await props.searchParams;

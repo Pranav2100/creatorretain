@@ -184,7 +184,22 @@ def register(email):
     )
     assert login.status_code == 200, login.text
 
-    return {"Authorization": f"Bearer {login.json()['access_token']}"}
+    headers = {
+        "Authorization": f"Bearer {login.json()['access_token']}"
+    }
+
+    # Joining someone else's workspace needs a job title and a
+    # phone number, because a creator on the far side of an offer
+    # is shown both. Filled in here so these checks stay about
+    # retainers; the gate itself is checked in
+    # verify_collaboration.
+    client.patch(
+        "/auth/me",
+        json={"job_title": "Talent Manager", "phone": "+919876543210"},
+        headers=headers,
+    )
+
+    return headers
 
 
 def make_workspace(headers, name, username, kind):
@@ -322,6 +337,32 @@ def main():
 
     assert body["anchor_day"] == 12, body
     note("the anchor day comes from the start date")
+
+    print("\n--- who the creator is actually dealing with ---")
+
+    seen = client.get(
+        f"/retainers/{retainer_id}", headers=nina
+    ).json()
+
+    contact = seen["contact"]
+
+    if contact is None:
+        bad("the creator is told who sent the offer", str(seen)[:200])
+    else:
+        assert contact["name"] == "Brand Test", contact
+        assert contact["job_title"] == "Talent Manager", contact
+        assert contact["email"] == "brand@test.com", contact
+        assert contact["phone"], contact
+        note("a name, a title and a way to reach them, not just a company")
+
+    mine = client.get(
+        f"/retainers/{retainer_id}", headers=brand
+    ).json()
+
+    if mine["contact"] == contact:
+        note("the sender sees the same record, from their own side")
+    else:
+        bad("both sides read the same contact")
 
     check(
         "the same creator cannot be offered twice at once",

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Header } from "@/components/header";
+import { Live } from "@/components/live";
 import { Filters } from "@/app/creators/filters";
 import {
   isBlocked,
@@ -9,6 +10,7 @@ import {
   type CreatorCard,
 } from "@/lib/discovery";
 import { money, place, reach } from "@/lib/format";
+import { getPulse } from "@/lib/pulse";
 import { requireWorkspace } from "@/lib/session";
 
 export const metadata = { title: "Creators · CreatorRetain" };
@@ -57,9 +59,10 @@ export default async function CreatorsPage(
   const current = readFilters(params);
 
   const query = new URLSearchParams(current);
-  const [result, categories] = await Promise.all([
+  const [result, categories, pulse] = await Promise.all([
     searchCreators(token, query),
     listCategories(),
+    getPulse(token, { scopes: ["discovery"] }),
   ]);
 
   const advanced = plan.capabilities.includes("advanced_filters");
@@ -121,6 +124,10 @@ export default async function CreatorsPage(
           </>
         )}
       </main>
+
+      {/* A creator who finishes their profile this minute should
+          turn up here without anyone pressing anything. */}
+      <Live scopes={["discovery"]} from={pulse} />
     </>
   );
 }
@@ -136,7 +143,7 @@ function Row({ creator }: { creator: CreatorCard }) {
     <li className="border-b border-line">
       <Link
         href={`/creators/${creator.id}`}
-        className="group flex items-baseline gap-4 py-5 outline-none focus-visible:bg-white"
+        className="group flex items-baseline gap-4 py-5 outline-none focus-visible:bg-surface"
       >
         <div className="min-w-0 flex-1">
           <h2 className="font-display text-[1.45rem] leading-tight tracking-tight text-ink group-hover:underline group-hover:decoration-line group-hover:underline-offset-[6px]">

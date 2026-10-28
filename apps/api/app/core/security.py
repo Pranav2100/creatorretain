@@ -8,6 +8,7 @@ from app.core.settings import settings
 def create_access_token(
     user_id: str,
     email: str,
+    token_version: int = 0,
 ) -> str:
     expire = datetime.now(UTC) + timedelta(
         minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
@@ -17,6 +18,11 @@ def create_access_token(
         "sub": user_id,
         "email": email,
         "type": "access",
+        # Which generation of this user's sessions this belongs
+        # to. Changing a password moves the user on a generation,
+        # which is what makes every token minted before it stop
+        # working.
+        "ver": token_version,
         "exp": expire,
     }
 

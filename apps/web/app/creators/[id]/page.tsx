@@ -2,9 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Header } from "@/components/header";
+import { Live } from "@/components/live";
 import { getCreator, type Rate } from "@/lib/discovery";
 import { money, place, reach } from "@/lib/format";
 import { countryName, languageName } from "@/lib/places";
+import { getPulse } from "@/lib/pulse";
 import { requireWorkspace } from "@/lib/session";
 
 const DELIVERABLE: Record<string, string> = {
@@ -31,6 +33,13 @@ export default async function CreatorPage(
   if (!creator) {
     notFound();
   }
+
+  // Read after the creator, not beside them: the scope needs
+  // their workspace id, which is what the page just fetched.
+  const pulse = await getPulse(token, {
+    scopes: ["creator"],
+    creator: creator.workspace_id,
+  });
 
   const beat = creator.categories.map((c) => c.name).join(", ");
   const where = place(
@@ -182,12 +191,25 @@ export default async function CreatorPage(
 
             <div className="mt-10 border-t border-line pt-6">
               {creator.can_contact ? (
-                <Link
-                  href={`/creators/${creator.id}/offer`}
-                  className="block w-full rounded-lg bg-pine py-3 text-center text-[15px] text-white transition-opacity hover:opacity-90"
-                >
-                  Offer a retainer
-                </Link>
+                <>
+                  <Link
+                    href={`/creators/${creator.id}/offer`}
+                    className="block w-full rounded-lg bg-pine py-3 text-center text-[15px] text-on-pine transition-opacity hover:opacity-90"
+                  >
+                    Offer a retainer
+                  </Link>
+
+                  {/* The lighter of the two on purpose. Writing
+                      to somebody costs them nothing to ignore;
+                      an offer is a commitment, so it stays the
+                      one that looks like one. */}
+                  <Link
+                    href={`/messages/new?to=${creator.workspace_id}`}
+                    className="mt-3 block w-full rounded-lg border border-line bg-surface py-3 text-center text-[15px] text-ink transition-colors hover:border-pine"
+                  >
+                    Message them
+                  </Link>
+                </>
               ) : (
                 <p className="text-[14px] leading-relaxed text-muted">
                   Reaching out to creators is a Pro feature. Your plan
@@ -198,6 +220,13 @@ export default async function CreatorPage(
           </aside>
         </div>
       </main>
+
+      {/* Rates and reach change while a brand is deciding. */}
+      <Live
+        scopes={["creator"]}
+        creator={creator.workspace_id}
+        from={pulse}
+      />
     </>
   );
 }

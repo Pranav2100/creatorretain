@@ -35,6 +35,32 @@ export type Party = {
   display_name: string;
 };
 
+/**
+ * The person at the hiring end, as opposed to the company. Null
+ * on a retainer offered before this existed, or one whose sender
+ * has since left - the agreement outlives the employee.
+ */
+export type Contact = {
+  name: string;
+  job_title: string | null;
+  email: string;
+  phone: string | null;
+};
+
+/**
+ * Someone inside the hiring workspace who runs this account.
+ * Distinct from Contact: that is who the creator deals with,
+ * this is who the agency has put on it. Often the same person,
+ * not necessarily.
+ */
+export type Assignee = {
+  user_id: string;
+  name: string;
+  job_title: string | null;
+  email: string;
+  assigned_at: string;
+};
+
 export type Spec = {
   id: string;
   deliverable_type: DeliverableType;
@@ -101,6 +127,7 @@ export type RetainerDetail = {
   message: string | null;
   brand: Party;
   creator: Party;
+  contact: Contact | null;
   your_side: "brand" | "creator";
   specs: Spec[];
   periods: Period[];
@@ -125,6 +152,40 @@ export type PendingChange = {
   yours: boolean;
   reason: string | null;
   asked_at: string;
+};
+
+export type EventKind =
+  | "offered"
+  | "accepted"
+  | "declined"
+  | "offer_withdrawn"
+  | "pause_requested"
+  | "resume_requested"
+  | "request_rejected"
+  | "request_withdrawn"
+  | "paused"
+  | "resumed"
+  | "notice_given"
+  | "ended"
+  | "work_submitted"
+  | "work_approved"
+  | "changes_requested"
+  | "work_rejected";
+
+export type RetainerEvent = {
+  id: string;
+  kind: EventKind;
+  at: string;
+  /** The workspace, as it read on the day. */
+  actor_name: string | null;
+  /** The person, looked up live. Null once they have left. */
+  actor_person: string | null;
+  actor_side: "brand" | "creator" | null;
+  /** Whether the reader's own side did this. */
+  yours: boolean;
+  note: string | null;
+  subject: string | null;
+  about_work: boolean;
 };
 
 export const DELIVERABLE_LABEL: Record<DeliverableType, string> = {
@@ -193,6 +254,69 @@ export async function getRetainer(
   }
 
   return body(response);
+}
+
+export async function getAssignees(
+  token: string,
+  id: string,
+): Promise<Assignee[]> {
+  const response = await fetch(
+    `${API_URL}/retainers/${id}/assignees`,
+    { headers: headers(token), cache: "no-store" },
+  );
+
+  if (!response.ok) {
+    return [];
+  }
+
+  return (await response.json()).assignees as Assignee[];
+}
+
+export async function assignPerson(
+  token: string,
+  id: string,
+  userId: string,
+): Promise<void> {
+  const response = await fetch(
+    `${API_URL}/retainers/${id}/assignees`,
+    {
+      method: "POST",
+      headers: headers(token),
+      body: JSON.stringify({ user_id: userId }),
+    },
+  );
+
+  await body(response);
+}
+
+export async function unassignPerson(
+  token: string,
+  id: string,
+  userId: string,
+): Promise<void> {
+  const response = await fetch(
+    `${API_URL}/retainers/${id}/assignees/${userId}`,
+    { method: "DELETE", headers: headers(token) },
+  );
+
+  await body(response);
+}
+
+export async function getHistory(
+  token: string,
+  id: string,
+): Promise<RetainerEvent[]> {
+  const response = await fetch(`${API_URL}/retainers/${id}/history`, {
+    headers: headers(token),
+    cache: "no-store",
+  });
+
+  if (response.status === 404) {
+    return [];
+  }
+
+  const parsed = await body(response);
+  return parsed.events as RetainerEvent[];
 }
 
 export async function createRetainer(

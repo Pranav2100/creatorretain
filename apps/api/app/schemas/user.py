@@ -11,6 +11,7 @@ class UserResponse(BaseModel):
     first_name: str
     last_name: str
     phone: str | None
+    job_title: str | None
     email_verified: bool
     phone_verified: bool
     two_factor_enabled: bool

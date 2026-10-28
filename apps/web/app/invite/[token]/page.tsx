@@ -41,9 +41,9 @@ export default async function InvitePage(
   return (
     <main className="flex flex-1 items-center justify-center bg-paper px-5 py-16">
       <div className="w-full max-w-[26rem]">
-        <div className="rounded-t-[14px] border border-b-0 border-line bg-white px-7 pt-7 pb-8">
+        <div className="rounded-t-[14px] border border-b-0 border-line bg-surface px-7 pt-7 pb-8">
           <div className="mb-9 flex items-center gap-2.5">
-            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-pine text-[11px] font-medium tracking-wide text-white">
+            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-pine text-[11px] font-medium tracking-wide text-on-pine">
               {initials(invitation.workspace_name)}
             </span>
             <span className="text-sm text-muted">{workspace}</span>
@@ -65,7 +65,7 @@ export default async function InvitePage(
           <span />
         </div>
 
-        <div className="rounded-b-[14px] border border-t-0 border-line bg-white px-7 pt-7 pb-8">
+        <div className="rounded-b-[14px] border border-t-0 border-line bg-surface px-7 pt-7 pb-8">
           {open ? (
             <AcceptPanel
               token={token}

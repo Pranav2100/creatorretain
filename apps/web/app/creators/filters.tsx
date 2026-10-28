@@ -103,7 +103,7 @@ export function Filters({ categories, current, advanced }: Props) {
 
         <button
           type="submit"
-          className="h-[38px] rounded-lg bg-pine px-4 text-[14px] text-white transition-opacity hover:opacity-90"
+          className="h-[38px] rounded-lg bg-pine px-4 text-[14px] text-on-pine transition-opacity hover:opacity-90"
         >
           Search
         </button>
@@ -188,7 +188,7 @@ function Select({
       <select
         name={name}
         defaultValue={value}
-        className="h-[38px] rounded-lg border border-line bg-white px-2.5 text-[14px] text-ink outline-none focus:border-pine"
+        className="h-[38px] rounded-lg border border-line bg-surface px-2.5 text-[14px] text-ink outline-none focus:border-pine"
       >
         {options.map(([optionValue, optionLabel]) => (
           <option key={optionValue} value={optionValue}>
@@ -226,7 +226,7 @@ function Field({
         placeholder={placeholder}
         size={size}
         disabled={locked}
-        className="h-[38px] rounded-lg border border-line bg-white px-2.5 text-[14px] text-ink outline-none placeholder:text-muted/60 focus:border-pine disabled:bg-paper disabled:text-muted"
+        className="h-[38px] rounded-lg border border-line bg-surface px-2.5 text-[14px] text-ink outline-none placeholder:text-muted focus:border-pine disabled:bg-paper disabled:text-muted"
       />
     </label>
   );

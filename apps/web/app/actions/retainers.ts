@@ -9,6 +9,8 @@ import {
   actOnRetainer,
   answerChange,
   askForChange,
+  assignPerson,
+  unassignPerson,
   createRetainer,
   reviewDeliverable,
   submitDeliverable,
@@ -276,6 +278,52 @@ export async function reviewWork(
 
   if (!state.error) {
     revalidatePath(`/retainers/${retainerId}`);
+  }
+
+  return state;
+}
+
+export async function putOnAccount(
+  _previous: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const token = await requireToken();
+
+  const retainerId = String(formData.get("retainer_id") ?? "");
+  const userId = String(formData.get("user_id") ?? "");
+
+  if (!userId) {
+    return { error: "Pick someone to put on this." };
+  }
+
+  const state = await attempt(() =>
+    assignPerson(token, retainerId, userId),
+  );
+
+  if (!state.error) {
+    revalidatePath(`/retainers/${retainerId}`);
+    revalidatePath("/retainers");
+  }
+
+  return state;
+}
+
+export async function takeOffAccount(
+  _previous: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const token = await requireToken();
+
+  const retainerId = String(formData.get("retainer_id") ?? "");
+  const userId = String(formData.get("user_id") ?? "");
+
+  const state = await attempt(() =>
+    unassignPerson(token, retainerId, userId),
+  );
+
+  if (!state.error) {
+    revalidatePath(`/retainers/${retainerId}`);
+    revalidatePath("/retainers");
   }
 
   return state;
