@@ -2,7 +2,11 @@
 
 import { useActionState, useState } from "react";
 
-import { saveDetails, setPassword } from "@/app/actions/account";
+import {
+  saveDetails,
+  setNotify,
+  setPassword,
+} from "@/app/actions/account";
 import { leaveWorkspace } from "@/app/actions/workspace";
 import type { Account } from "@/lib/account";
 import { noError } from "@/lib/forms";
@@ -130,7 +134,7 @@ export function DetailsForm({ account }: { account: Account }) {
       <p className="mt-2 max-w-[52ch] text-[12px] leading-relaxed text-muted">
         Creators see your name, your title and how to reach you on
         every offer you send them. Both are needed before you can
-        join someone else's workspace.
+        join someone else&rsquo;s workspace.
       </p>
 
       {moving && (
@@ -268,5 +272,129 @@ export function LeaveForm({ name }: { name: string }) {
 
       <Said error={state.error} done={state.done} />
     </form>
+  );
+}
+
+/**
+ * What we email you about.
+ *
+ * Each switch saves as it is flipped rather than waiting for a
+ * Save button. Three checkboxes above a button is an invitation
+ * to tick one, leave, and wonder next week why the emails kept
+ * coming.
+ *
+ * There is no switch for security mail. That is deliberate and
+ * the page says so, because an unexplained omission reads as an
+ * oversight.
+ */
+function NotifySwitch({
+  field,
+  label,
+  note,
+  on,
+}: {
+  field: string;
+  label: string;
+  note: string;
+  on: boolean;
+}) {
+  const [state, action, saving] = useActionState(
+    setNotify,
+    noError,
+  );
+
+  return (
+    <li className="border-b border-line py-3.5 first:border-t">
+      <form action={action}>
+        <input type="hidden" name="field" value={field} />
+        {/* An unticked checkbox sends nothing at all, so the
+            state it is moving to travels beside it - written
+            from the box itself as it is clicked rather than
+            precomputed, so it is right however fast somebody
+            clicks. */}
+        <input
+          type="hidden"
+          name="on"
+          defaultValue={on ? "false" : "true"}
+        />
+
+        <label className="flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            // defaultChecked, not checked. Controlled by the
+            // server value, React resets the box to that value
+            // the moment it is clicked and only moves it back
+            // once the save has round-tripped - so every click
+            // visibly snaps back first. Uncontrolled, the box
+            // stays where it was put and the server value
+            // catches up behind it.
+            defaultChecked={on}
+            disabled={saving}
+            onChange={(event) => {
+              const form = event.currentTarget.form;
+
+              if (!form) return;
+
+              const flag = form.elements.namedItem(
+                "on",
+              ) as HTMLInputElement | null;
+
+              if (flag) {
+                flag.value = event.currentTarget.checked
+                  ? "true"
+                  : "false";
+              }
+
+              form.requestSubmit();
+            }}
+            className="mt-1 accent-pine disabled:opacity-40"
+          />
+          <span className="min-w-0">
+            <span className="text-[15px] text-ink">{label}</span>
+            <span className="block text-[13px] leading-snug text-muted">
+              {note}
+            </span>
+          </span>
+        </label>
+
+        {state.error && (
+          <p className="mt-2 text-[13px] text-alarm">{state.error}</p>
+        )}
+      </form>
+    </li>
+  );
+}
+
+export function NotifyForm({ account }: { account: Account }) {
+  return (
+    <>
+      <ul>
+        <NotifySwitch
+          field="notify_retainers"
+          label="Retainers"
+          note="An offer arrives, somebody accepts or declines, a pause or an ending needs you."
+          on={account.notify_retainers}
+        />
+        <NotifySwitch
+          field="notify_work"
+          label="Work"
+          note="Something is submitted, approved, or sent back for changes."
+          on={account.notify_work}
+        />
+        <NotifySwitch
+          field="notify_messages"
+          label="Messages"
+          note="A nudge when you have not read a conversation. Never one email per message."
+          on={account.notify_messages}
+        />
+      </ul>
+
+      <p className="mt-5 max-w-[58ch] text-[13px] leading-relaxed text-muted">
+        We will always email you about your account itself — a
+        password change, or sessions being signed out. That one
+        has no switch on purpose: if it was not you who changed
+        it, the email is the only warning you get.
+      </p>
+    </>
   );
 }

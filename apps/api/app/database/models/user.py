@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from sqlalchemy import Boolean, Enum, Integer, String
+from sqlalchemy import Boolean, Enum, Integer, String, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -86,6 +86,37 @@ class User(TimestampMixin, Base):
     # token issued in the same second as the change, and there is
     # no answer to that which is both simple and right. Two
     # integers are either equal or they are not.
+    # What this person wants to be emailed about.
+    #
+    # Three switches rather than four: security mail has no
+    # column because it has no switch. Being told your password
+    # changed is not a newsletter - if it was not you who changed
+    # it, an email you cannot turn off is the entire point.
+    #
+    # All default on. Somebody who never visits the account page
+    # should hear about an offer, and the alternative - silence
+    # until you find the setting - is the worse failure.
+    notify_retainers: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        server_default=text("true"),
+        nullable=False,
+    )
+
+    notify_messages: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        server_default=text("true"),
+        nullable=False,
+    )
+
+    notify_work: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        server_default=text("true"),
+        nullable=False,
+    )
+
     token_version: Mapped[int] = mapped_column(
         Integer,
         default=0,

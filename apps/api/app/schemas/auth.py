@@ -61,6 +61,14 @@ class UpdateMeRequest(BaseModel):
     phone: str | None = Field(default=None, max_length=20)
     job_title: str | None = Field(default=None, max_length=80)
 
+    # What to be emailed about. Three, not four: security mail
+    # has no switch, because an email saying your password
+    # changed is only worth anything if whoever changed it could
+    # not have turned it off.
+    notify_retainers: bool | None = None
+    notify_messages: bool | None = None
+    notify_work: bool | None = None
+
     # Only needed in order to change the email, because that is
     # the thing someone holding a stolen session would change
     # first - it is how the account is recovered.

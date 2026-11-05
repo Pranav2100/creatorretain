@@ -15,3 +15,9 @@ class UserResponse(BaseModel):
     email_verified: bool
     phone_verified: bool
     two_factor_enabled: bool
+
+    # So the account page can show the switches as they are
+    # rather than guessing a default.
+    notify_retainers: bool
+    notify_messages: bool
+    notify_work: bool

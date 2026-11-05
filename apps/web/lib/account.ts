@@ -13,6 +13,13 @@ export type Account = {
   phone: string | null;
   job_title: string | null;
   email_verified: boolean;
+
+  // Three, not four: security mail has no switch, because an
+  // email saying your password changed is only worth something
+  // if whoever changed it could not have turned it off.
+  notify_retainers: boolean;
+  notify_messages: boolean;
+  notify_work: boolean;
 };
 
 function headers(token: string) {

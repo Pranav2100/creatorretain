@@ -16,6 +16,9 @@ from app.database.repositories.conversation import (
 from app.database.repositories.discovery import DiscoveryRepository
 from app.database.repositories.pulse import PulseRepository
 from app.database.repositories.retainer import RetainerRepository
+from app.database.repositories.notification import (
+    NotificationRepository,
+)
 from app.database.repositories.custom_role import (
     CustomRoleRepository,
 )
@@ -36,6 +39,7 @@ from app.services.pulse import PulseService
 from app.services.retainer import RetainerService
 from app.services.workspace_plan import WorkspacePlanService
 from app.services.custom_role import CustomRoleService
+from app.services.notification import NotificationService
 from app.services.workspace_member import WorkspaceMemberService
 
 
@@ -116,6 +120,7 @@ def get_retainer_service(
         repository=RetainerRepository(db),
         workspace_repository=WorkspaceRepository(db),
         member_service=get_workspace_member_service(db),
+        notifications=get_notification_service(db),
     )
 
 
@@ -126,6 +131,8 @@ def get_conversation_service(
         repository=ConversationRepository(db),
         workspace_repository=WorkspaceRepository(db),
         member_service=get_workspace_member_service(db),
+        notifications=get_notification_service(db),
+        member_repository=WorkspaceMemberRepository(db),
     )
 
 
@@ -144,4 +151,17 @@ def get_custom_role_service(
     return CustomRoleService(
         repository=CustomRoleRepository(db),
         member_repository=WorkspaceMemberRepository(db),
+    )
+
+
+def get_notification_service(
+    db: Session = Depends(get_db),
+) -> NotificationService:
+    return NotificationService(
+        repository=NotificationRepository(db),
+        member_repository=WorkspaceMemberRepository(db),
+        retainer_repository=RetainerRepository(db),
+        custom_role_repository=CustomRoleRepository(db),
+        conversation_repository=ConversationRepository(db),
+        email_sender=get_email_sender(),
     )

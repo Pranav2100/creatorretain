@@ -159,3 +159,232 @@ Review your invitations:
         html_body=_wrap(content, footer),
         text_body=text,
     )
+
+
+# ----------------------------------------------------------------------
+# Notifications
+#
+# One builder for every kind, driven off a table rather than a
+# chain of ifs. Each entry is a subject line and a sentence; the
+# wrapper, the button and the footer are shared, so adding a kind
+# is a row here rather than another near-copy of the invitation
+# template above.
+#
+# Rendered at send time from the facts stored on the row, which
+# is what lets a wording fix reach everything still queued.
+# ----------------------------------------------------------------------
+
+def _retainer_url(payload: dict) -> str:
+    return f"{settings.APP_URL}/retainers/{payload.get('retainer_id', '')}"
+
+
+def _conversation_url(payload: dict) -> str:
+    return (
+        f"{settings.APP_URL}/messages/"
+        f"{payload.get('conversation_id', '')}"
+    )
+
+
+# kind -> (subject, sentence, button label, url builder)
+_NOTIFICATIONS: dict[str, tuple[str, str, str, object]] = {
+    "offer_received": (
+        "You have a new offer: {title}",
+        "Somebody wants to put you on a monthly retainer. "
+        "Nothing is agreed until you accept it.",
+        "Read the offer",
+        _retainer_url,
+    ),
+    "offer_accepted": (
+        "{title} was accepted",
+        "Your offer was accepted. The first month opens today.",
+        "Open the retainer",
+        _retainer_url,
+    ),
+    "offer_declined": (
+        "{title} was declined",
+        "Your offer was declined. Nothing has been charged.",
+        "Open the retainer",
+        _retainer_url,
+    ),
+    "pause_requested": (
+        "A pause was asked for on {title}",
+        "The other side has asked to pause this retainer. "
+        "It keeps running until you agree.",
+        "Review the request",
+        _retainer_url,
+    ),
+    "resume_requested": (
+        "A restart was asked for on {title}",
+        "The other side has asked to start this retainer again.",
+        "Review the request",
+        _retainer_url,
+    ),
+    "request_rejected": (
+        "Your request on {title} was turned down",
+        "The request was turned down, so nothing has changed.",
+        "Open the retainer",
+        _retainer_url,
+    ),
+    "paused": (
+        "{title} is paused",
+        "Both sides agreed, so this retainer is now paused. "
+        "Nothing is due while it is.",
+        "Open the retainer",
+        _retainer_url,
+    ),
+    "resumed": (
+        "{title} is running again",
+        "This retainer has started again.",
+        "Open the retainer",
+        _retainer_url,
+    ),
+    "notice_given": (
+        "Notice was given on {title}",
+        "This retainer will end once the notice period is up. "
+        "The months until then run as normal.",
+        "Open the retainer",
+        _retainer_url,
+    ),
+    "ended": (
+        "{title} has ended",
+        "This retainer has ended. Nothing further is due.",
+        "Open the retainer",
+        _retainer_url,
+    ),
+    "work_submitted": (
+        "Work was submitted on {title}",
+        "There is something waiting for you to review.",
+        "Review the work",
+        _retainer_url,
+    ),
+    "work_approved": (
+        "Work was approved on {title}",
+        "Your work was approved.",
+        "Open the retainer",
+        _retainer_url,
+    ),
+    "changes_requested": (
+        "Changes were asked for on {title}",
+        "The other side has asked for changes before approving.",
+        "Read what was asked",
+        _retainer_url,
+    ),
+    "work_rejected": (
+        "Work was rejected on {title}",
+        "Something you submitted was rejected.",
+        "Open the retainer",
+        _retainer_url,
+    ),
+    "unread_messages": (
+        "{from_name} messaged you",
+        "You have a message you have not read yet.",
+        "Read it",
+        _conversation_url,
+    ),
+    "message_request": (
+        "{from_name} wants to message you",
+        "Somebody you have not spoken to before would like to "
+        "get in touch. Nothing reaches your inbox until you "
+        "accept.",
+        "See the request",
+        _conversation_url,
+    ),
+    "password_changed": (
+        "Your password was changed",
+        "Your password was changed just now, and any other "
+        "sessions were signed out. If this was not you, reset "
+        "your password immediately.",
+        "Go to your account",
+        lambda payload: f"{settings.APP_URL}/account",
+    ),
+}
+
+
+def build_notification_email(notification) -> EmailMessage:
+    """
+    The email for one queued notification.
+
+    Takes the row rather than the thing that happened, because by
+    now the thing that happened may be minutes old or gone - the
+    facts it needs were copied onto the row when it was queued.
+    """
+    payload = notification.payload or {}
+    kind = notification.kind.value
+
+    subject_template, sentence, label, url_for = _NOTIFICATIONS[kind]
+
+    # Nothing in a payload is trusted into a subject line beyond
+    # what the templates name, and anything missing falls back to
+    # wording that still reads.
+    fields = {
+        "title": payload.get("title") or "your retainer",
+        "from_name": payload.get("from_name") or "Somebody",
+    }
+
+    subject = subject_template.format(**fields)
+    url = url_for(payload)
+    note = (payload.get("note") or "").strip()
+
+    quoted = ""
+
+    if note:
+        quoted = f"""
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+       style="background:#f7f6f3;border-radius:8px;margin:0 0 24px;">
+<tr><td style="padding:14px 16px;font-size:14px;line-height:1.6;color:#1f1e1c;">
+{escape(note)}</td></tr>
+</table>
+"""
+
+    content = f"""
+<p style="margin:0 0 8px;font-size:17px;line-height:1.4;color:#1f1e1c;">
+<strong>{escape(subject)}</strong>
+</p>
+<p style="margin:0 0 20px;font-size:15px;line-height:1.7;color:#1f1e1c;">
+{escape(sentence)}
+</p>
+{quoted}
+<p style="margin:0 0 22px;">{_button(url, label)}</p>
+<p style="margin:0;font-size:13px;line-height:1.6;color:#5f5e5a;">
+If the button does not work, paste this into your browser:<br>
+<span style="font-size:12px;color:#185fa5;word-break:break-all;">
+{escape(url)}</span>
+</p>
+"""
+
+    text_note = f"\n\n{note}\n" if note else ""
+
+    text = f"""{subject}
+
+{sentence}{text_note}
+
+{label}:
+{url}"""
+
+    if notification.kind.is_security:
+        footer = (
+            "This one is sent whatever your notification settings "
+            "say, because it is about the security of your account."
+        )
+        text += (
+            "\n\nThis one is sent whatever your notification "
+            "settings say, because it is about the security of "
+            "your account."
+        )
+    else:
+        footer = (
+            "You are getting this because of what you are working "
+            "on. You can change what we email you about in your "
+            "account settings."
+        )
+        text += (
+            "\n\nYou can change what we email you about in your "
+            "account settings."
+        )
+
+    return EmailMessage(
+        to=notification.to_email,
+        subject=subject,
+        html_body=_wrap(content, footer),
+        text_body=text,
+    )

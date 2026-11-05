@@ -93,3 +93,45 @@ export async function setPassword(
     done: "Password changed. Any other browser has been signed out.",
   };
 }
+
+
+/**
+ * Saves one notification switch.
+ *
+ * One at a time, submitted as the box is ticked. A Save button
+ * under three checkboxes invites you to tick one and walk away,
+ * and then wonder next week why you are still being emailed.
+ */
+export async function setNotify(
+  _previous: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const field = String(formData.get("field") ?? "");
+
+  if (
+    !["notify_retainers", "notify_messages", "notify_work"].includes(
+      field,
+    )
+  ) {
+    return { error: "That is not a setting." };
+  }
+
+  // A checkbox sends nothing at all when it is off, so its state
+  // travels in a hidden field beside it rather than by absence.
+  const on = String(formData.get("on") ?? "") === "true";
+
+  const token = await requireToken("/account");
+
+  try {
+    await updateAccount(token, { [field]: on });
+    revalidatePath("/account");
+
+    return { error: null };
+  } catch (caught) {
+    if (caught instanceof ApiError) {
+      return { error: caught.message };
+    }
+
+    return { error: "Could not reach the server. Is the API running?" };
+  }
+}

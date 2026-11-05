@@ -4,7 +4,12 @@ import { Header } from "@/components/header";
 import { getAccount } from "@/lib/account";
 import { requireWorkspace } from "@/lib/session";
 
-import { DetailsForm, LeaveForm, PasswordForm } from "./forms";
+import {
+  DetailsForm,
+  LeaveForm,
+  NotifyForm,
+  PasswordForm,
+} from "./forms";
 
 export const metadata = { title: "Your account · CreatorRetain" };
 
@@ -49,6 +54,13 @@ export default async function AccountPage() {
           note="Your name as colleagues see it, and the address you sign in with."
         >
           <DetailsForm account={account} />
+        </Block>
+
+        <Block
+          title="Email"
+          note="What we send you when something happens while you are not here."
+        >
+          <NotifyForm account={account} />
         </Block>
 
         <Block

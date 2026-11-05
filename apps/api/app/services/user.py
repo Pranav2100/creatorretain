@@ -2,6 +2,7 @@ from app.core.password import hash_password, verify_password
 from app.core.security import create_access_token
 from app.database.models.user import User
 from app.database.repositories.user import UserRepository
+from app.services.notification import NotificationService
 from app.schemas.auth import (
     ChangePasswordRequest,
     LoginRequest,
@@ -12,8 +13,13 @@ from app.schemas.auth import (
 
 
 class UserService:
-    def __init__(self, repository: UserRepository):
+    def __init__(
+        self,
+        repository: UserRepository,
+        notifications: "NotificationService | None" = None,
+    ):
         self.repository = repository
+        self.notifications = notifications
 
     def register(self, request: RegisterRequest) -> User:
         if request.password != request.confirm_password:
@@ -73,6 +79,17 @@ class UserService:
 
         if request.job_title is not None:
             user.job_title = request.job_title.strip() or None
+
+        # Switches, not text: `is not None` rather than a falsy
+        # check, or turning one off would read as not sending it.
+        if request.notify_retainers is not None:
+            user.notify_retainers = request.notify_retainers
+
+        if request.notify_messages is not None:
+            user.notify_messages = request.notify_messages
+
+        if request.notify_work is not None:
+            user.notify_work = request.notify_work
 
         wants = (request.email or "").strip().lower()
 
@@ -134,6 +151,18 @@ class UserService:
         # which is the point: if the password is being changed
         # because someone else had it, they had a session too.
         user.token_version += 1
+
+        # Queued before the save, because save() commits - a row
+        # added after it is flushed into a transaction that
+        # nothing ever commits, and is silently gone when the
+        # session closes. Here it lands in the same commit as the
+        # password itself, so either both happened or neither.
+        #
+        # Not optional, either: this is the one email a person
+        # cannot turn off, because if it was not them who changed
+        # the password it is the only warning they get.
+        if self.notifications is not None:
+            self.notifications.about_password_change(user)
 
         saved = self.repository.save(user)
 

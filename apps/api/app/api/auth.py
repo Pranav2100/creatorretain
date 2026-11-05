@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.api.dependencies.services import (
+    get_notification_service,
+)
 from app.api.dependencies.auth import get_current_user
 from app.database.models.user import User
 from app.database.repositories.user import UserRepository
@@ -129,7 +132,10 @@ def change_password(
     would be signed out of the browser they just used - and would
     reasonably wonder whether the change had worked.
     """
-    service = UserService(UserRepository(db))
+    service = UserService(
+        UserRepository(db),
+        notifications=get_notification_service(db),
+    )
 
     try:
         token = service.change_password(current_user, request)

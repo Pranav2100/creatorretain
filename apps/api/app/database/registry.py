@@ -19,6 +19,7 @@ from app.database.models.creator_rate import CreatorRate
 from app.database.models.creator_social_account import (
     CreatorSocialAccount,
 )
+from app.database.models.notification import Notification
 from app.database.models.retainer import Retainer
 from app.database.models.retainer_deliverable import (
     RetainerDeliverable,
@@ -56,6 +57,7 @@ __all__ = [
     "CreatorSocialAccount",
     "CreatorPortfolioItem",
     "CreatorRate",
+    "Notification",
     "Retainer",
     "RetainerDeliverable",
     "RetainerAssignment",

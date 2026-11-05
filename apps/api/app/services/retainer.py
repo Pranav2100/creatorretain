@@ -36,6 +36,7 @@ from app.database.models.retainer_event import RetainerEvent
 from app.database.models.retainer_period import RetainerPeriod
 from app.database.repositories.retainer import RetainerRepository
 from app.database.repositories.workspace import WorkspaceRepository
+from app.services.notification import NotificationService
 from app.services.workspace_member import (
     WorkspaceContext,
     WorkspaceMemberService,
@@ -94,7 +95,12 @@ class RetainerService:
         workspace_repository: WorkspaceRepository,
         member_service: WorkspaceMemberService,
         clock: Callable[[], date] | None = None,
+        # Optional so anything constructing this service without
+        # notifications still works - it simply records history
+        # and tells nobody, which is what it did before.
+        notifications: "NotificationService | None" = None,
     ):
+        self.notifications = notifications
         self.repository = repository
         self.workspace_repository = workspace_repository
         self.member_service = member_service
@@ -1182,7 +1188,24 @@ class RetainerService:
             subject=subject,
         )
 
-        return self.repository.record(event)
+        recorded = self.repository.record(event)
+
+        # Queued in this transaction, beside the event that
+        # caused it. Either the change, its history and the
+        # notification all happened, or none of them did - and
+        # nothing is actually sent here, so a mail provider
+        # cannot take a retainer change down with it.
+        if self.notifications is not None:
+            self.notifications.about_retainer(
+                retainer,
+                kind.value,
+                actor_side=side,
+                actor_user_id=actor_user_id,
+                note=note,
+                subject=subject,
+            )
+
+        return recorded
 
     @staticmethod
     def _deliverable_label(deliverable: RetainerDeliverable) -> str:

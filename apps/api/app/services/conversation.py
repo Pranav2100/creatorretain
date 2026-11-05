@@ -14,10 +14,14 @@ from app.database.models.message import (
     Message,
 )
 from app.database.models.workspace_block import WorkspaceBlock
+from app.database.repositories.workspace_member import (
+    WorkspaceMemberRepository,
+)
 from app.database.repositories.conversation import (
     ConversationRepository,
 )
 from app.database.repositories.workspace import WorkspaceRepository
+from app.services.notification import NotificationService
 from app.services.workspace_member import (
     WorkspaceContext,
     WorkspaceMemberService,
@@ -60,10 +64,16 @@ class ConversationService:
         repository: ConversationRepository,
         workspace_repository: WorkspaceRepository,
         member_service: WorkspaceMemberService,
+        # Optional, like everywhere else: without it messages
+        # still send, they just do not nudge anybody by email.
+        notifications: "NotificationService | None" = None,
+        member_repository: "WorkspaceMemberRepository | None" = None,
     ):
         self.repository = repository
         self.workspace_repository = workspace_repository
         self.member_service = member_service
+        self.notifications = notifications
+        self.member_repository = member_repository
 
     # ------------------------------------------------------------------
     # Reading
@@ -266,6 +276,11 @@ class ConversationService:
         conversation.last_message_at = self._now()
         conversation.message_count += 1
 
+        # Before the save, which commits: a notification added
+        # afterwards is flushed into a transaction nobody commits
+        # and quietly disappears.
+        self._nudge(conversation, context, other)
+
         self.repository.save(conversation)
 
         # Sending is reading: nobody should return to a thread
@@ -273,6 +288,48 @@ class ConversationService:
         self._touch_read_mark(conversation.id, current_user_id)
 
         return conversation, message
+
+    def _nudge(
+        self,
+        conversation: Conversation,
+        context,
+        other: UUID,
+    ) -> None:
+        """
+        Queue an email for the other side, behind a quiet period.
+
+        Addressed to that workspace's owner. A conversation is
+        between two workspaces rather than two people, and the
+        owner is the one person guaranteed to be able to see it -
+        everybody else can be narrowed to the accounts they run,
+        so mailing them risks an email about a thread they cannot
+        open. Routing to whoever actually handles the account is
+        worth doing once conversations are tied to one.
+
+        Nothing is sent here. The drain looks at the read marks
+        again after the quiet period, and the usual outcome for
+        somebody who is already in the app is that this is
+        dropped unsent.
+        """
+        if self.notifications is None or self.member_repository is None:
+            return
+
+        owner = self.member_repository.get_owner(other)
+
+        if owner is None or owner.user is None:
+            return
+
+        if owner.user_id == conversation.started_by_user_id and (
+            conversation.message_count <= 1
+        ):
+            return
+
+        self.notifications.about_message(
+            owner.user,
+            conversation.id,
+            from_name=context.workspace.display_name,
+            is_request=conversation.is_request_for(other),
+        )
 
     def _open(
         self,
