@@ -13,6 +13,7 @@ import {
   withdrawInvitation,
 } from "@/app/actions/workspace";
 import { noError } from "@/lib/forms";
+import type { CustomRole } from "@/lib/roles";
 import type { Member, SentInvitation } from "@/lib/team";
 import {
   RANK,
@@ -20,6 +21,8 @@ import {
   type WorkspaceRole,
   type WorkspaceSummary,
 } from "@/lib/workspace";
+
+import { MemberRoles } from "./role-forms";
 
 const field =
   "rounded-lg border border-line bg-surface px-3 py-2.5 text-[15px] text-ink outline-none placeholder:text-muted focus:border-pine";
@@ -374,10 +377,16 @@ export function MemberRow({
   member,
   viewerRole,
   isYou,
+  roles = [],
+  offerable = [],
 }: {
   member: Member;
   viewerRole: string;
   isYou: boolean;
+  /** The custom roles this person holds. */
+  roles?: CustomRole[];
+  /** The ones the viewer could actually hand out. */
+  offerable?: CustomRole[];
 }) {
   const [roleState, roleAction, changing] = useActionState(
     setRole,
@@ -455,6 +464,18 @@ export function MemberRow({
           </form>
         )}
       </span>
+
+      {/* Custom roles sit under the built-in one, because that
+          is the relationship: the select above says what they
+          are, and these say what has been added on top. Only
+          offered for people this viewer outranks. */}
+      {mayAct && (roles.length > 0 || offerable.length > 0) && (
+        <MemberRoles
+          userId={member.user_id}
+          held={roles}
+          offerable={offerable}
+        />
+      )}
 
       {(roleState.error || dropState.error) && (
         <span className="w-full text-[13px] text-ink">

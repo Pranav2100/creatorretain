@@ -4,6 +4,7 @@ import { Header } from "@/components/header";
 import { Live } from "@/components/live";
 import { API_URL } from "@/lib/api";
 import { getPulse } from "@/lib/pulse";
+import { listAssignments, listRoles } from "@/lib/roles";
 import { listMembers, listSentInvitations } from "@/lib/team";
 import { requireWorkspace } from "@/lib/session";
 import { canEdit } from "@/lib/workspace";
@@ -15,6 +16,7 @@ import {
   MemberRow,
   WorkspaceForm,
 } from "./forms";
+import { NewRoleForm, RoleRow } from "./role-forms";
 
 export const metadata = { title: "Settings · CreatorRetain" };
 
@@ -43,12 +45,25 @@ export default async function SettingsPage() {
 
   const editable = canEdit(workspace.your_role);
 
-  const [members, invitations, userId, pulse] = await Promise.all([
-    listMembers(token),
-    listSentInvitations(token),
-    whoAmI(token),
-    getPulse(token, { scopes: ["workspace"] }),
-  ]);
+  const [members, invitations, userId, pulse, catalogue, assignments] =
+    await Promise.all([
+      listMembers(token),
+      listSentInvitations(token),
+      whoAmI(token),
+      getPulse(token, { scopes: ["workspace"] }),
+      listRoles(token),
+      listAssignments(token),
+    ]);
+
+  // Only people who can manage roles get the section at all. The
+  // server would refuse anyway; this keeps the page from showing
+  // a heading over nothing.
+  const mayDefineRoles =
+    catalogue !== null &&
+    catalogue.permissions.some(
+      (permission) =>
+        permission.value === "change_roles" && permission.held,
+    );
 
   const pending = (invitations ?? []).filter(
     (invitation) => invitation.status === "pending",
@@ -150,6 +165,27 @@ export default async function SettingsPage() {
                       member={member}
                       viewerRole={workspace.your_role}
                       isYou={member.user_id === userId}
+                      // Only for people this viewer outranks, and
+                      // only roles they could actually grant - the
+                      // same rule the server applies, so nothing
+                      // is offered that was always going to be
+                      // refused.
+                      roles={
+                        catalogue
+                          ? (assignments[member.user_id] ?? [])
+                              .map((id) =>
+                                catalogue.roles.find(
+                                  (r) => r.id === id,
+                                ),
+                              )
+                              .filter((r) => r !== undefined)
+                          : []
+                      }
+                      offerable={
+                        catalogue
+                          ? catalogue.roles.filter((r) => r.editable)
+                          : []
+                      }
                     />
                   ))}
               </ul>
@@ -174,6 +210,54 @@ export default async function SettingsPage() {
             </>
           )}
         </Section>
+
+        {mayDefineRoles && catalogue && (
+          <Section
+            title="Roles"
+            note="Roles of your own, on top of the four built in. A role only ever adds to what somebody can already do, and you can only put into one what you have yourself."
+          >
+            {catalogue.roles.length === 0 ? (
+              <p className="max-w-[58ch] text-[15px] leading-relaxed text-muted">
+                None yet. A role is worth making when several
+                people need the same handful of extra powers —
+                say, letting your account managers invite people
+                without making them admins.
+              </p>
+            ) : (
+              <ul>
+                {catalogue.roles.map((role, index) => {
+                  const order = catalogue.roles.map((r) => r.id);
+
+                  // The whole list, reordered, worked out here so
+                  // the button can post it as it stands. The
+                  // server is told the order it should end up in
+                  // rather than which way something moved.
+                  const swap = (a: number, b: number) => {
+                    const next = [...order];
+                    [next[a], next[b]] = [next[b], next[a]];
+                    return next;
+                  };
+
+                  return (
+                    <RoleRow
+                      key={role.id}
+                      role={role}
+                      permissions={catalogue.permissions}
+                      upward={index > 0 ? swap(index, index - 1) : null}
+                      downward={
+                        index < order.length - 1
+                          ? swap(index, index + 1)
+                          : null
+                      }
+                    />
+                  );
+                })}
+              </ul>
+            )}
+
+            <NewRoleForm permissions={catalogue.permissions} />
+          </Section>
+        )}
       </main>
 
       {/* An invitation accepted in someone else's browser should

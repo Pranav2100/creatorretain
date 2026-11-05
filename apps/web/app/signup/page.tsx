@@ -32,7 +32,7 @@ export default async function SignUpPage(
       <div className="w-full max-w-[24rem]">
         <Link
           href="/"
-          className="font-display text-[1.6rem] tracking-tight text-ink"
+          className="font-display text-[1.6rem] tracking-tight text-ink decoration-pine underline-offset-[6px] hover:underline"
         >
           CreatorRetain
         </Link>

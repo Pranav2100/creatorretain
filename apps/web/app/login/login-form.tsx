@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 
 import { signIn } from "@/app/actions/session";
@@ -54,6 +55,18 @@ export function LoginForm({ next }: { next: string }) {
       >
         {pending ? "Signing in" : "Sign in"}
       </button>
+
+      {/* The mirror of the one on /signup. Somebody who has not
+          got an account yet was being asked to guess the URL. */}
+      <p className="mt-5 text-center text-[13px] text-muted">
+        New here?{" "}
+        <Link
+          href="/signup"
+          className="text-ink underline underline-offset-4"
+        >
+          Create an account
+        </Link>
+      </p>
     </form>
   );
 }

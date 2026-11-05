@@ -78,6 +78,26 @@
   color-scheme: light;
 }
 
+/*
+ * Nothing animates while the theme is being switched.
+ *
+ * Twenty-odd controls carry transition-colors so that hovering
+ * them eases rather than snaps. That same rule applies when the
+ * theme changes, so each of those elements spends 150ms easing
+ * from its old colour to its new one while the page around it
+ * changes instantly - which reads as the button flashing or
+ * lagging behind, and is worst on a pale button against a page
+ * that has just gone dark.
+ *
+ * The toggle sets this for one frame while it flips, so a theme
+ * change is instantaneous everywhere and hovering still eases.
+ */
+:root[data-theme-switching] *,
+:root[data-theme-switching] *::before,
+:root[data-theme-switching] *::after {
+  transition: none !important;
+}
+
 body {
   background: var(--color-paper);
   color: var(--color-ink);

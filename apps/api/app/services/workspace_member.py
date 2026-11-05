@@ -24,10 +24,13 @@ from app.common.permissions import (
     WorkspacePermission,
     can_change_role,
     can_remove_member,
-    has_permission,
+    permissions_for,
 )
 from app.database.models.workspace import Workspace
 from app.database.models.workspace_member import WorkspaceMember
+from app.database.repositories.custom_role import (
+    CustomRoleRepository,
+)
 from app.database.repositories.workspace import WorkspaceRepository
 from app.database.repositories.workspace_member import (
     WorkspaceMemberRepository,
@@ -55,6 +58,16 @@ class WorkspaceContext:
     membership: WorkspaceMember | None
     role: WorkspaceRole
 
+    # Everything the person's custom roles add on top of the
+    # built-in one. Empty for almost everybody: a workspace has
+    # none of these until it invents some.
+    #
+    # Resolved once, when the context is built, rather than
+    # looked up at each check - a single request asks "may they"
+    # several times, and the answer must not change halfway
+    # through because somebody edited a role in between.
+    granted: frozenset[WorkspacePermission] = frozenset()
+
     @property
     def workspace_id(self) -> UUID:
         return self.workspace.id
@@ -77,12 +90,25 @@ class WorkspaceContext:
             self.plan,
         )
 
+    @property
+    def permissions(self) -> frozenset[WorkspacePermission]:
+        """
+        Everything this person can do here.
+
+        The built-in role sets the floor and custom roles add to
+        it; nothing subtracts. Every permission question in the
+        application comes through here, which is what made custom
+        roles a change to one class rather than a sweep through
+        every service.
+        """
+        return permissions_for(self.role) | self.granted
+
     def require(
         self,
         permission: WorkspacePermission,
         message: str | None = None,
     ) -> None:
-        if not has_permission(self.role, permission):
+        if permission not in self.permissions:
             raise PermissionDeniedError(
                 message
                 or "You don't have permission to perform this action."
@@ -96,7 +122,7 @@ class WorkspaceContext:
         refuse on it - narrowing a list to what this person runs,
         say, instead of turning them away from the page.
         """
-        return has_permission(self.role, permission)
+        return permission in self.permissions
 
     def can(self, capability: Capability) -> bool:
         return has_capability(
@@ -147,13 +173,42 @@ class WorkspaceMemberService:
         self,
         repository: WorkspaceMemberRepository,
         workspace_repository: WorkspaceRepository,
+        # Optional so anything constructing this service without
+        # knowing about custom roles still works - it just
+        # resolves a context with none of them, which is what
+        # every workspace has until it invents one.
+        custom_role_repository: "CustomRoleRepository | None" = None,
     ):
         self.repository = repository
         self.workspace_repository = workspace_repository
+        self.custom_role_repository = custom_role_repository
 
     # ------------------------------------------------------------------
     # Workspace resolution
     # ------------------------------------------------------------------
+
+    def _granted_to(
+        self,
+        member_id: UUID,
+    ) -> frozenset[WorkspacePermission]:
+        """
+        Everything this member's custom roles add.
+
+        The Owner fallback below does not go through here: it has
+        no membership row to hang grants off, and the Owner holds
+        everything a custom role could add anyway.
+        """
+        if self.custom_role_repository is None:
+            return frozenset()
+
+        granted: set[WorkspacePermission] = set()
+
+        for role in self.custom_role_repository.roles_for_member(
+            member_id,
+        ):
+            granted |= role.granted
+
+        return frozenset(granted)
 
     def resolve_context(
         self,
@@ -175,6 +230,7 @@ class WorkspaceMemberService:
                 workspace=workspace,
                 membership=membership,
                 role=membership.role,
+                granted=self._granted_to(membership.id),
             )
 
         # Fallback for workspaces created before owner membership

@@ -11,7 +11,25 @@ function current(): Theme {
 }
 
 function apply(theme: Theme): void {
-  document.documentElement.setAttribute("data-theme", theme);
+  const root = document.documentElement;
+
+  // Turn every transition off for the switch itself, or the
+  // controls carrying transition-colors ease into their new
+  // colours over 150ms while the rest of the page changes at
+  // once - which looks like those controls flickering. See
+  // globals.css.
+  root.setAttribute("data-theme-switching", "");
+  root.setAttribute("data-theme", theme);
+
+  // Reading a layout property forces the browser to apply both
+  // attributes now, rather than batching them with the removal
+  // below - without it the rule would come and go within one
+  // style recalculation and never take effect.
+  void root.offsetHeight;
+
+  requestAnimationFrame(() => {
+    root.removeAttribute("data-theme-switching");
+  });
 }
 
 export function ThemeToggle({

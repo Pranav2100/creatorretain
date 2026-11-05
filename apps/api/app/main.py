@@ -10,6 +10,7 @@ from app.api.creator_profile import (
     router as creator_profile_router,
 )
 from app.api.conversations import router as conversation_router
+from app.api.custom_roles import router as custom_role_router
 from app.api.discovery import router as discovery_router
 from app.api.health import router as health_router
 from app.api.pulse import router as pulse_router
@@ -64,6 +65,7 @@ app.include_router(brand_router)
 app.include_router(retainer_router)
 app.include_router(categories_router)
 app.include_router(workspace_member_router)
+app.include_router(custom_role_router)
 app.include_router(workspace_invitation_router)
 app.include_router(conversation_router)
 app.include_router(pulse_router)

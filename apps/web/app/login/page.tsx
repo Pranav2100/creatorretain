@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { getToken } from "@/lib/session";
@@ -50,8 +51,27 @@ export default async function LoginPage(
   return (
     <main className="flex flex-1 items-center justify-center px-5 py-16">
       <div className="w-full max-w-[22rem]">
-        <h1 className="font-display text-[2.4rem] leading-[1.05] tracking-tight text-ink">
+        {/* The way out. Signing in was the only page in the app
+            with no link off it at all - no way back to the
+            marketing page and no way to the sign-up form - so
+            arriving here by mistake left you stuck. Laid out
+            like /signup, which already did this: the wordmark
+            goes home, and the heading says what the page is
+            rather than repeating the product name.
+
+            It underlines on hover, which /signup now does too: a
+            wordmark that is a link but looks exactly like a
+            heading is only a way out for people who already
+            guessed it was one. */}
+        <Link
+          href="/"
+          className="font-display text-[1.6rem] tracking-tight text-ink decoration-pine underline-offset-[6px] hover:underline"
+        >
           CreatorRetain
+        </Link>
+
+        <h1 className="mt-7 font-display text-[2rem] leading-[1.1] tracking-tight text-ink">
+          Sign in
         </h1>
         <p className="mt-2 text-[15px] leading-relaxed text-muted">
           Where creators, brands and agencies work together.

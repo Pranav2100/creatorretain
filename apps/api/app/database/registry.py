@@ -35,8 +35,14 @@ from app.database.models.message import Message
 from app.database.models.user import User
 from app.database.models.workspace import Workspace
 from app.database.models.workspace_block import WorkspaceBlock
+from app.database.models.workspace_custom_role import (
+    WorkspaceCustomRole,
+)
 from app.database.models.workspace_invitation import WorkspaceInvitation
 from app.database.models.workspace_member import WorkspaceMember
+from app.database.models.workspace_member_role import (
+    WorkspaceMemberRole,
+)
 
 __all__ = [
     "Base",
@@ -58,5 +64,7 @@ __all__ = [
     "RetainerPeriod",
     "Workspace",
     "WorkspaceMember",
+    "WorkspaceMemberRole",
+    "WorkspaceCustomRole",
     "WorkspaceInvitation",
 ]

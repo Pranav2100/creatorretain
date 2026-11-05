@@ -16,6 +16,9 @@ from app.database.repositories.conversation import (
 from app.database.repositories.discovery import DiscoveryRepository
 from app.database.repositories.pulse import PulseRepository
 from app.database.repositories.retainer import RetainerRepository
+from app.database.repositories.custom_role import (
+    CustomRoleRepository,
+)
 from app.database.repositories.workspace_member import (
     WorkspaceMemberRepository,
 )
@@ -32,6 +35,7 @@ from app.services.discovery import DiscoveryService
 from app.services.pulse import PulseService
 from app.services.retainer import RetainerService
 from app.services.workspace_plan import WorkspacePlanService
+from app.services.custom_role import CustomRoleService
 from app.services.workspace_member import WorkspaceMemberService
 
 
@@ -41,6 +45,7 @@ def get_workspace_member_service(
     return WorkspaceMemberService(
         repository=WorkspaceMemberRepository(db),
         workspace_repository=WorkspaceRepository(db),
+        custom_role_repository=CustomRoleRepository(db),
     )
 
 
@@ -130,4 +135,13 @@ def get_pulse_service(
     return PulseService(
         repository=PulseRepository(db),
         member_service=get_workspace_member_service(db),
+    )
+
+
+def get_custom_role_service(
+    db: Session = Depends(get_db),
+) -> CustomRoleService:
+    return CustomRoleService(
+        repository=CustomRoleRepository(db),
+        member_repository=WorkspaceMemberRepository(db),
     )
