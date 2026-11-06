@@ -28,17 +28,68 @@ Last updated 6 November 2026.
 - **Theming plumbing** — every colour is a token, light and dark
   resolved before first paint, skeleton screens, custom 404 and
   error pages. The *mechanism*, not the final look.
+- **Plan subscriptions** — buying Pro or Business through a
+  provider, behind a switch that is off. See *Payments* below.
 
-Verification: 13 suites, 531 in-process checks, plus
+Verification: 14 suites, 587 in-process checks, plus
 `verify_schema.py` which runs the real migration chain against
 PostgreSQL and compares the result against the models column by
 column.
 
+What the suites did *not* catch, and clicking the real page did:
+stacked checkouts on repeated presses of Choose, a confirmation
+that described something that had not happened, a Plan section
+missing from the pulse, and a page frozen by the browser's
+back-forward cache. Checks now cover all four. Worth remembering
+the next time the suite passing feels like being finished.
+
 ## Left, in order
 
-### 1. Payments
+### 1. Payments — built, switched off
 
-Plan changes are not wired to anything. Settings says so.
+Plans can be bought. `BILLING_PROVIDER` defaults to `fake`, so
+nothing can take money until the six values below are set. The
+rule the whole design rests on: **the provider grants the plan,
+not the request** — pressing Choose writes a pending row and
+sends the person off to pay, and the plan arrives only when a
+signed webhook says it was paid for.
+
+Prices are placeholders. All of them must stay under **₹15,000**,
+the RBI ceiling for auto-debit: above it every single monthly
+charge needs an OTP from the payer, which ends automatic
+renewal. Razorpay's live mode also needs a registered business
+entity, so until CreatorRetain is incorporated, test mode is as
+far as this can go.
+
+#### Turning Razorpay on
+
+1. **Keys.** Dashboard in **Test** mode → Account & Settings →
+   API Keys → Generate Key. The secret is shown once; download
+   it there and then. Test keys need no website. Live keys need
+   verified website details, which Razorpay checks in about
+   three working days — start that before it is urgent.
+2. **Two plans.** Subscriptions → Plans, monthly, INR, one per
+   paid tier. Each gives a `plan_id` like `plan_0000...`. Prices
+   live in Razorpay, not here, so changing one later means a new
+   plan there rather than an edit in this repo.
+3. **Webhook.** Settings → Webhooks → `https://<api>/billing/webhook`.
+   The secret is one you invent; it must match
+   `RAZORPAY_WEBHOOK_SECRET`. Subscribe to exactly the eight the
+   code handles: `subscription.authenticated`, `.activated`,
+   `.charged`, `.pending`, `.halted`, `.cancelled`, `.completed`,
+   `.expired`. With no secret set the code rejects every webhook
+   rather than trust an unsigned one — which looks exactly like
+   "payments never activate".
+4. **Six values in `apps/api/.env`:** `BILLING_PROVIDER=razorpay`,
+   `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`,
+   `RAZORPAY_WEBHOOK_SECRET`, `RAZORPAY_PLAN_PRO`,
+   `RAZORPAY_PLAN_BUSINESS`.
+
+Testing this on a laptop needs a tunnel (ngrok or similar) to
+port 8000, because the webhook has to arrive from the internet.
+
+A second provider is a new file implementing the same four
+methods, not a change to the service.
 
 ### 2. Final UI
 
