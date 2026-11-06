@@ -127,16 +127,20 @@ export function PlanChooser({ billing }: { billing: Billing }) {
             </form>
           )}
 
-          {state.done && (
-            <p className="mt-2 text-[13px] text-pine">{state.done}</p>
-          )}
-
-          {state.error && (
-            <p className="mt-2 text-[13px] text-alarm">
-              {state.error}
-            </p>
-          )}
         </div>
+      )}
+
+      {/* Outside the box on purpose. Clearing an unpaid checkout
+          removes the box, and a confirmation that lives inside
+          it would be swept away in the same render - leaving
+          somebody who just pressed a button with no sign that
+          anything happened. */}
+      {state.done && (
+        <p className="mb-5 text-[13px] text-pine">{state.done}</p>
+      )}
+
+      {state.error && (
+        <p className="mb-5 text-[13px] text-alarm">{state.error}</p>
       )}
 
       <ul>

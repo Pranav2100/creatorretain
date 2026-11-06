@@ -49,6 +49,27 @@ class BillingRepository(BaseRepository[Subscription]):
             .first()
         )
 
+    def pending_for_workspace(
+        self,
+        workspace_id: UUID,
+    ) -> list[Subscription]:
+        """
+        Every unpaid checkout a workspace is holding.
+
+        Normally at most one, because starting a new one
+        supersedes the last. This exists so a cancel can also
+        clear up rows left behind before that was true.
+        """
+        return (
+            self.db.query(Subscription)
+            .filter(
+                Subscription.workspace_id == workspace_id,
+                Subscription.deleted_at.is_(None),
+                Subscription.status == SubscriptionStatus.PENDING,
+            )
+            .all()
+        )
+
     def by_provider_ref(
         self,
         provider: str,

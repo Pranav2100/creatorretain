@@ -115,6 +115,26 @@ class BillingService:
                 "Cancel your current plan before starting another."
             )
 
+        if existing is not None and existing.status in (
+            SubscriptionStatus.PENDING,
+            SubscriptionStatus.CANCELLING,
+        ):
+            # Pressing Choose again supersedes the last attempt
+            # rather than stacking on top of it.
+            #
+            # Without this, every click creates another
+            # subscription at the provider: somebody who tries
+            # Pro, thinks better of it and tries Business ends up
+            # with two live checkouts, and if they pay both they
+            # are charged twice. One cancel would only clear one
+            # of them, so the page would go on saying a payment
+            # was on its way.
+            #
+            # A CANCELLING one is included because it is already
+            # on its way out; starting again is the clearest way
+            # to say "no, keep paying, just for this instead".
+            self._supersede(existing)
+
         checkout = self.provider.start(
             plan=plan,
             workspace_id=str(workspace.id),
@@ -178,6 +198,18 @@ class BillingService:
         )
         live.cancelled_at = self._now()
 
+        # Anything else unpaid goes with it. Starting a
+        # subscription now supersedes the last attempt, so there
+        # should be nothing here - but a database that collected
+        # stacked rows before that was true would otherwise need
+        # one click per row to get clean, with the page still
+        # claiming a payment was coming in between.
+        for stale in self.repository.pending_for_workspace(
+            context.workspace_id,
+        ):
+            if stale.id != live.id:
+                self._supersede(stale)
+
         # plan_expires_at is deliberately untouched. Somebody who
         # cancels on the third has paid for that month and keeps
         # it; the plan lapses when the date passes, which
@@ -186,6 +218,28 @@ class BillingService:
         self.repository.db.flush()
 
         return live
+
+    def _supersede(self, subscription: Subscription) -> None:
+        """
+        Ends a subscription nobody is paying for yet, so another
+        can take its place.
+
+        Only ever used on PENDING or CANCELLING rows, so this
+        cannot take away something somebody is paying for:
+        plan_expires_at is untouched either way, and a plan
+        already paid for runs to the date on the workspace.
+        """
+        if subscription.cancelled_at is None:
+            # Already-cancelling rows have been through this at
+            # the provider once. Telling them twice is the same
+            # mistake the double-cancel guard exists to prevent.
+            self.provider.cancel(
+                subscription.provider_subscription_id,
+                at_period_end=False,
+            )
+            subscription.cancelled_at = self._now()
+
+        subscription.status = SubscriptionStatus.ENDED
 
     def _billing_email(self, context: WorkspaceContext) -> str:
         membership = context.membership

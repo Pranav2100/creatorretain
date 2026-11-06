@@ -31,6 +31,10 @@ from sqlalchemy.orm import sessionmaker  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 
 import app.database.registry  # noqa: F401,E402
+from app.common.enums.subscription import (  # noqa: E402
+    SubscriptionStatus,
+)
+from app.common.enums.workspace_plan import WorkspacePlan  # noqa: E402
 from app.database.models.base import Base  # noqa: E402
 
 engine = create_engine(
@@ -654,6 +658,76 @@ if stored_plan == "pro":
     ok("while the stored plan still remembers what was bought")
 else:
     bad("the stored plan was overwritten")
+
+print()
+print("=" * 62)
+print("Changing your mind before paying")
+print("=" * 62)
+
+# Found by Pranav clicking the real page: the box went on saying
+# a payment was on its way after he had cleared it. Every press
+# of Choose used to create another subscription at the provider,
+# and a cancel only ended one of them - so two presses meant two
+# live checkouts and, if both were paid, two charges.
+
+for leftover in subscription_rows():
+    if leftover.status != SubscriptionStatus.ENDED:
+        client.delete("/billing/subscription", headers=owner)
+        break
+
+# Whatever the earlier webhooks left this workspace on. The
+# point below is that none of this moves it, not that it is Free.
+plan_before = plan_of("talentx_billing")
+
+client.post(
+    "/billing/subscription",
+    json={"plan": "pro"},
+    headers=owner,
+)
+client.post(
+    "/billing/subscription",
+    json={"plan": "business"},
+    headers=owner,
+)
+
+unpaid = [
+    row
+    for row in subscription_rows()
+    if row.status == SubscriptionStatus.PENDING
+]
+
+if len(unpaid) == 1:
+    ok("choosing twice supersedes rather than stacking")
+else:
+    bad(
+        "two presses of Choose left more than one live checkout",
+        f"{len(unpaid)} pending: "
+        + ", ".join(f"{r.plan.value}/{r.status.value}" for r in unpaid),
+    )
+
+if unpaid and unpaid[0].plan == WorkspacePlan.BUSINESS:
+    ok("and the one left is the plan chosen last")
+else:
+    bad("the superseded plan is the one still waiting to be paid")
+
+check(
+    "one cancel clears what is waiting",
+    client.delete("/billing/subscription", headers=owner),
+    200,
+)
+
+if client.get("/billing", headers=owner).json()["subscription"] is None:
+    ok("and the page stops claiming a payment is coming")
+else:
+    bad("the page still shows a subscription after cancelling")
+
+if plan_of("talentx_billing") == plan_before:
+    ok("none of which moved the plan either way")
+else:
+    bad(
+        "an abandoned checkout changed the plan",
+        f"{plan_before} became {plan_of('talentx_billing')}",
+    )
 
 print()
 print("=" * 62)

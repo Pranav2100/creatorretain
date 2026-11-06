@@ -67,13 +67,25 @@ export async function subscribe(
 export async function unsubscribe(): Promise<FormState> {
   const token = await requireToken("/settings");
 
+  let ended: boolean;
+
   try {
-    await cancelSubscription(token);
+    // What came back says which of the two things happened. A
+    // checkout nobody paid for just stops; a paid plan keeps
+    // running to the end of what it bought. Telling someone
+    // their plan "will not renew" when they never paid for one
+    // describes something that was never going to happen.
+    ended = (await cancelSubscription(token)).status === "ended";
   } catch (caught) {
     return failed(caught);
   }
 
   revalidatePath("/settings");
 
-  return { error: null, done: "Your plan will not renew." };
+  return {
+    error: null,
+    done: ended
+      ? "That is cleared — you have not been charged."
+      : "Your plan will not renew.",
+  };
 }
