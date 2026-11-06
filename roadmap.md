@@ -146,6 +146,45 @@ written down outside the code. What a new developer would need:
 - Why the odd-looking choices are that way, so nobody
   "simplifies" them back into bugs.
 
+**No trace of how it was written.** The source is already clean
+— no generated-by comments anywhere in it. Three things are
+not, as of 7 November:
+
+- `apps/web/CLAUDE.md` and `apps/web/AGENTS.md` are tracked
+  files. AGENTS.md holds one note worth keeping: read the Next
+  docs in `node_modules/next/dist/docs/` before writing code
+  against this version, because its APIs differ from what is
+  widely documented and guessing from memory has produced bugs
+  here. Keep the note, lose the filename — fold it into
+  CONTRIBUTING.md or the README.
+- Every commit carries `Co-Authored-By: Claude` and a session
+  link, and some are *authored* by Claude rather than by
+  Pranav. The repository is public, so anyone can read this,
+  including anybody being interviewed.
+- Fixing that means rewriting every commit and force pushing.
+  **Do it early.** Thirteen commits is an afternoon; two
+  hundred is a weekend, and the cost only goes up.
+
+New commits carry neither trailer from here on.
+
+**The legal pages.** Not only propriety — Razorpay runs
+automated checks on the site before approving live payments and
+rejects it without **terms and conditions, privacy policy,
+refunds policy, about us, contact us, and pricing**. Activation
+also wants a sample invoice, and, because CreatorRetain requires
+signing in before paying, a set of test credentials for their
+reviewers to use.
+
+Cookie consent is a separate question and probably a smaller
+one: the only cookie today is the session, which is strictly
+necessary and generally exempt, and the theme lives in
+localStorage. Adding analytics changes that — so decide about
+analytics *before* building a consent banner rather than after.
+India's DPDP Act applies to the personal data here regardless.
+
+None of that is legal advice. It is the list to take to someone
+qualified, so that conversation is short and cheap.
+
 Worth doing before deployment rather than after, because
 deployment is when somebody is most likely to change something
 in a hurry.
