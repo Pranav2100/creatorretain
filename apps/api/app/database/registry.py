@@ -20,6 +20,10 @@ from app.database.models.creator_social_account import (
     CreatorSocialAccount,
 )
 from app.database.models.notification import Notification
+from app.database.models.subscription import (
+    BillingEvent,
+    Subscription,
+)
 from app.database.models.retainer import Retainer
 from app.database.models.retainer_deliverable import (
     RetainerDeliverable,
@@ -58,6 +62,8 @@ __all__ = [
     "CreatorPortfolioItem",
     "CreatorRate",
     "Notification",
+    "Subscription",
+    "BillingEvent",
     "Retainer",
     "RetainerDeliverable",
     "RetainerAssignment",

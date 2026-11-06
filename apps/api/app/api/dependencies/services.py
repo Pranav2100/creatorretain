@@ -16,6 +16,9 @@ from app.database.repositories.conversation import (
 from app.database.repositories.discovery import DiscoveryRepository
 from app.database.repositories.pulse import PulseRepository
 from app.database.repositories.retainer import RetainerRepository
+from app.database.repositories.billing import (
+    BillingRepository,
+)
 from app.database.repositories.notification import (
     NotificationRepository,
 )
@@ -38,6 +41,8 @@ from app.services.discovery import DiscoveryService
 from app.services.pulse import PulseService
 from app.services.retainer import RetainerService
 from app.services.workspace_plan import WorkspacePlanService
+from app.services.billing import get_billing_provider
+from app.services.billing.service import BillingService
 from app.services.custom_role import CustomRoleService
 from app.services.notification import NotificationService
 from app.services.workspace_member import WorkspaceMemberService
@@ -164,4 +169,14 @@ def get_notification_service(
         custom_role_repository=CustomRoleRepository(db),
         conversation_repository=ConversationRepository(db),
         email_sender=get_email_sender(),
+    )
+
+
+def get_billing_service(
+    db: Session = Depends(get_db),
+) -> BillingService:
+    return BillingService(
+        repository=BillingRepository(db),
+        workspace_repository=WorkspaceRepository(db),
+        provider=get_billing_provider(),
     )

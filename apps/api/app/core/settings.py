@@ -80,6 +80,27 @@ class Settings(BaseSettings):
     SMTP_USE_TLS: bool = False
 
     # ------------------------------------------------------------------
+    # Billing
+    #
+    # "fake" takes no money and signs its own webhooks, which is
+    # what the suites run against and what a developer gets by
+    # default. Switching to "razorpay" needs the four values
+    # below and nothing else: no code changes.
+    #
+    # The plan ids are Razorpay's, not ours. A subscription there
+    # is an instance of a plan that already exists on their side,
+    # so each paid plan has to be created in their dashboard and
+    # its id put here.
+    # ------------------------------------------------------------------
+    BILLING_PROVIDER: str = "fake"
+
+    RAZORPAY_KEY_ID: str = ""
+    RAZORPAY_KEY_SECRET: str = ""
+    RAZORPAY_WEBHOOK_SECRET: str = ""
+    RAZORPAY_PLAN_PRO: str = ""
+    RAZORPAY_PLAN_BUSINESS: str = ""
+
+    # ------------------------------------------------------------------
     # JWT
     # ------------------------------------------------------------------
     JWT_SECRET_KEY: str = "CHANGE_ME_IN_PRODUCTION"

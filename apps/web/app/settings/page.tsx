@@ -4,6 +4,7 @@ import { Header } from "@/components/header";
 import { Live } from "@/components/live";
 import { API_URL } from "@/lib/api";
 import { getPulse } from "@/lib/pulse";
+import { getBilling } from "@/lib/billing";
 import { listAssignments, listRoles } from "@/lib/roles";
 import { listMembers, listSentInvitations } from "@/lib/team";
 import { requireWorkspace } from "@/lib/session";
@@ -16,6 +17,7 @@ import {
   MemberRow,
   WorkspaceForm,
 } from "./forms";
+import { PlanChooser } from "./billing-forms";
 import { NewRoleForm, RoleRow } from "./role-forms";
 
 export const metadata = { title: "Settings · CreatorRetain" };
@@ -45,14 +47,22 @@ export default async function SettingsPage() {
 
   const editable = canEdit(workspace.your_role);
 
-  const [members, invitations, userId, pulse, catalogue, assignments] =
-    await Promise.all([
+  const [
+    members,
+    invitations,
+    userId,
+    pulse,
+    catalogue,
+    assignments,
+    billing,
+  ] = await Promise.all([
       listMembers(token),
       listSentInvitations(token),
       whoAmI(token),
       getPulse(token, { scopes: ["workspace"] }),
       listRoles(token),
       listAssignments(token),
+      getBilling(token),
     ]);
 
   // Only people who can manage roles get the section at all. The
@@ -140,10 +150,15 @@ export default async function SettingsPage() {
             />
           </ul>
 
-          <p className="mt-4 max-w-[58ch] text-[14px] leading-relaxed text-muted">
-            Changing plan is not wired up to payment yet, so there is
-            nothing to press here. It is the next thing after this.
-          </p>
+          {billing ? (
+            <div className="mt-6">
+              <PlanChooser billing={billing} />
+            </div>
+          ) : (
+            <p className="mt-4 max-w-[58ch] text-[14px] leading-relaxed text-muted">
+              Only the owner can change the plan.
+            </p>
+          )}
         </Section>
 
         <Section
