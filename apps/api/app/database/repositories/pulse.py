@@ -21,6 +21,7 @@ from app.database.models.retainer_assignment import (
 )
 from app.database.models.retainer_event import RetainerEvent
 from app.database.models.retainer_period import RetainerPeriod
+from app.database.models.subscription import Subscription
 from app.database.models.workspace import Workspace
 from app.database.models.workspace_invitation import (
     WorkspaceInvitation,
@@ -232,11 +233,18 @@ class PulseRepository:
 
     def workspace(self, workspace_id: UUID) -> Reading:
         """
-        The workspace itself, who is in it, and who has been asked.
+        The workspace itself, who is in it, who has been asked,
+        and what it is paying.
 
         What settings and the team page are made of. An invitation
         accepted in another browser should show up here without
         anyone reloading to find out.
+
+        Subscriptions belong here for the same reason, and one
+        particular moment needs them: paying happens on somebody
+        else's site, so the person comes back to a page that was
+        rendered before they left. Without this the Plan section
+        is the one part of settings that never notices.
         """
         return self.combine(
             [
@@ -254,6 +262,11 @@ class PulseRepository:
                     WorkspaceInvitation,
                     WorkspaceInvitation.updated_at,
                     WorkspaceInvitation.workspace_id == workspace_id,
+                ),
+                self._read(
+                    Subscription,
+                    Subscription.updated_at,
+                    Subscription.workspace_id == workspace_id,
                 ),
             ]
         )

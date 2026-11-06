@@ -527,6 +527,36 @@ def main() -> int:
     else:
         bad("an unrelated workspace sees a count", str(theirs))
 
+    # Paying happens on the provider's site, so the person comes
+    # back to a page rendered before they left. If subscriptions
+    # are missing from this reading, the Plan section is the one
+    # part of settings that never notices anything happened.
+    settle()
+    before_pay = pulse(brand, "workspace")
+
+    client.post(
+        "/billing/subscription",
+        json={"plan": "business"},
+        headers=brand,
+    )
+
+    moved(
+        "starting a subscription moves the workspace pulse",
+        before_pay,
+        pulse(brand, "workspace"),
+    )
+
+    settle()
+    before_stop = pulse(brand, "workspace")
+
+    client.delete("/billing/subscription", headers=brand)
+
+    moved(
+        "and so does clearing it again",
+        before_stop,
+        pulse(brand, "workspace"),
+    )
+
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed")
 
     for label in FAILED:

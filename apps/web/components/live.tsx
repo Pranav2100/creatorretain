@@ -129,13 +129,41 @@ export function Live({ from, ...watching }: Props) {
       }
     }
 
+    /**
+     * Coming back with the browser's Back button.
+     *
+     * A page restored from the back-forward cache is a
+     * photograph: no request is made, no effect runs again, and
+     * what is on screen is whatever was there when the person
+     * left. That is wrong anywhere, and worst on the way back
+     * from paying - they leave to pay, press Back, and the page
+     * tells them nothing has happened.
+     *
+     * Refreshed unconditionally rather than after a poll,
+     * because the poll only reacts to the pulse and the pulse
+     * does not know about subscriptions. Whatever changed while
+     * they were away, the server is the one to say so.
+     */
+    function onRestored(event: PageTransitionEvent) {
+      if (!event.persisted) {
+        return;
+      }
+
+      router.refresh();
+
+      clearTimeout(timer);
+      timer = setTimeout(ask, EVERY);
+    }
+
     document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("pageshow", onRestored);
     timer = setTimeout(ask, EVERY);
 
     return () => {
       cancelled = true;
       clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("pageshow", onRestored);
     };
   }, [query, router]);
 
