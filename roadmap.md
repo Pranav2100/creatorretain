@@ -100,7 +100,57 @@ The visual design has never been settled. This is deliberately
 late: because every colour is a token, restyling is editing one
 block rather than hunting through components.
 
-### 3. Deployment
+### 3. Cleanup, before anything is deployed
+
+One pass over the whole codebase, for two reasons: nothing
+should ship that is no longer true, and the next person to read
+this - a new developer, or either of us in six months - should
+not have to work out which parts still count.
+
+**Things a later decision made obsolete.** The one already
+found, and the reason this section exists:
+
+- **`ALLOW_SELF_SERVE_PLAN_CHANGE` still defaults to `true`.**
+  It was the stand-in for billing - it lets an owner move their
+  own workspace between plans. Billing now exists, so shipping
+  with this on means anyone can give themselves Business for
+  free. It must be `false` in production, and the default here
+  should probably be flipped so that forgetting the variable
+  fails closed rather than open.
+
+The rest of the pass looks for more of the same:
+
+- Code, settings, columns and migrations kept for a decision
+  that has since changed.
+- Exports nobody imports, dependencies nobody uses, environment
+  variables nothing reads.
+- Comments describing how something used to work.
+- The four lint errors under *Known gaps*, so a CI gate can be
+  added without it going red on day one.
+
+**Readable by somebody new.** The architecture holds up - router
+to service to repository to model, permissions in one place,
+derived state over stored state - but almost none of it is
+written down outside the code. What a new developer would need:
+
+- A README that gets the thing running: the two apps, the
+  environment variables, the migrations, how to seed a usable
+  account.
+- The conventions that are not guessable and have each already
+  cost a bug: SQLAlchemy persists enums by `.name`, so every
+  Postgres enum carries uppercase labels; `TimestampMixin` adds
+  `deleted_at` as well as the other two, so migrations must
+  create all three; `save()` commits, so anything flushed after
+  it is lost; migrations spell enum labels inline because the
+  checker reads them as text.
+- Why the odd-looking choices are that way, so nobody
+  "simplifies" them back into bugs.
+
+Worth doing before deployment rather than after, because
+deployment is when somebody is most likely to change something
+in a hurry.
+
+### 4. Deployment
 
 Includes three things that notifications depend on:
 
@@ -113,7 +163,7 @@ Includes three things that notifications depend on:
 - **DNS for the sending domain** — SPF, DKIM, DMARC. Skipping
   this is how an app ends up in spam.
 
-### 4. Mobile app, with push
+### 5. Mobile app, with push
 
 Planned. Notes from working out what it would take:
 
