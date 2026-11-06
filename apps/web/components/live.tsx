@@ -53,6 +53,16 @@ export function Live({ from, ...watching }: Props) {
   const seen = useRef<string>(mark(from));
   const hiddenSince = useRef<number | null>(null);
 
+  /**
+   * Whether this document came back from the back-forward cache.
+   *
+   * It stays true for the life of the document, because the
+   * client router cannot be trusted to re-render one that was
+   * restored - asking it to politely does nothing. Anything this
+   * page wants to show from here on has to come from a reload.
+   */
+  const restored = useRef(false);
+
   const [stale, setStale] = useState(false);
 
   // The query is rebuilt from the scopes rather than passed as a
@@ -101,6 +111,12 @@ export function Live({ from, ...watching }: Props) {
         // "ask again", never as "nothing changed".
         if (body.count !== -1 && seen.current !== mark(body)) {
           seen.current = mark(body);
+
+          if (restored.current) {
+            window.location.reload();
+            return;
+          }
+
           setStale(true);
 
           router.refresh();
@@ -139,20 +155,47 @@ export function Live({ from, ...watching }: Props) {
      * from paying - they leave to pay, press Back, and the page
      * tells them nothing has happened.
      *
-     * Refreshed unconditionally rather than after a poll,
-     * because the poll only reacts to the pulse and the pulse
-     * does not know about subscriptions. Whatever changed while
-     * they were away, the server is the one to say so.
+     * Reloaded rather than refreshed, and only when something
+     * really did change. router.refresh() asks the client router
+     * to re-render, and the router on a restored page is part of
+     * the same photograph - it was observed doing nothing here
+     * while the page sat with its button still reading "Taking
+     * you to pay". A reload owes nothing to that state.
+     *
+     * The cost of a reload is scroll position and anything
+     * half-typed, which is why it is paid only when the reading
+     * has moved. Coming back to a page where nothing happened
+     * costs one request and changes nothing on screen.
      */
-    function onRestored(event: PageTransitionEvent) {
-      if (!event.persisted) {
+    async function onRestored(event: PageTransitionEvent) {
+      if (!event.persisted || cancelled) {
         return;
       }
 
-      router.refresh();
+      restored.current = true;
 
       clearTimeout(timer);
-      timer = setTimeout(ask, EVERY);
+
+      try {
+        const response = await fetch(`/api/pulse?${query}`, {
+          cache: "no-store",
+        });
+
+        if (response.ok) {
+          const body = await response.json();
+
+          if (body.count !== -1 && seen.current !== mark(body)) {
+            window.location.reload();
+            return;
+          }
+        }
+      } catch {
+        // Offline. Fall through and go back to polling.
+      }
+
+      if (!cancelled) {
+        timer = setTimeout(ask, EVERY);
+      }
     }
 
     document.addEventListener("visibilitychange", onVisible);
