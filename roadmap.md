@@ -4,7 +4,7 @@ Where CreatorRetain is, what is left, and the decisions already
 taken so they are not re-litigated. Kept here rather than in a
 chat, because chats do not persist.
 
-Last updated 6 November 2026.
+Last updated 7 November 2026.
 
 ## Built
 
@@ -31,10 +31,13 @@ Last updated 6 November 2026.
 - **Plan subscriptions** — buying Pro or Business through a
   provider, behind a switch that is off. See *Payments* below.
 
-Verification: 14 suites, 587 in-process checks, plus
-`verify_schema.py` which runs the real migration chain against
+Verification: 14 suites and 585 in-process checks, plus
+`verify_schema.py`, which runs the real migration chain against
 PostgreSQL and compares the result against the models column by
-column.
+column — 4 more, and the only ones that touch a real database.
+589 in all. Counted with the loop in *Testing* below rather
+than by memory, because this number was quoted wrongly three
+times in one evening.
 
 What the suites did *not* catch, and clicking the real page did:
 stacked checkouts on repeated presses of Choose, a confirmation
@@ -193,3 +196,11 @@ in-memory SQLite:
 and executes the migrations, which is the one thing the others
 cannot do. Everything it writes is rolled back, so it is safe to
 point at a database that matters.
+
+All of them at once, with the total, from `apps/api`:
+
+    for f in verify_*.py; do uv run "$f" | grep -E '^[0-9]+ (passed|failed)'; done \
+      | awk '{p+=$1; f+=$3} END {print p" passed, "f" failed"}'
+
+(PowerShell has no `awk`; run this in Git Bash, or just read the
+last line of each suite.)
